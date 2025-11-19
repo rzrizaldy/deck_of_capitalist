@@ -321,6 +321,7 @@ export default function CapitalistPoker() {
   const [tycoons, setTycoons] = useState([]);
   const [shopInventory, setShopInventory] = useState([]);
   const [highScore, setHighScore] = useState(() => parseInt(localStorage.getItem('cp_highscore') || '0'));
+  const [playedCards, setPlayedCards] = useState([]); // Accumulated cards from all played hands
 
   const [lastHandScore, setLastHandScore] = useState(null); // For animation/feedback
   const [isScoring, setIsScoring] = useState(false);
@@ -344,19 +345,20 @@ export default function CapitalistPoker() {
         hand, 
         selectedIds: Array.from(selectedIds), 
         discardCount, 
-        handsLeft,
+        handsLeft, 
         round, 
         score, 
         targetScore, 
         money, 
         tycoons, 
-        shopInventory, 
+        shopInventory,
+        playedCards,
         gameState,
         timestamp: Date.now()
       };
       localStorage.setItem('cp_save_data', JSON.stringify(saveData));
     }
-  }, [deck, hand, selectedIds, discardCount, handsLeft, round, score, targetScore, money, tycoons, shopInventory, gameState]);
+  }, [deck, hand, selectedIds, discardCount, handsLeft, round, score, targetScore, money, tycoons, shopInventory, playedCards, gameState]);
 
   // --- ACTIONS ---
 
@@ -390,6 +392,7 @@ export default function CapitalistPoker() {
       setMoney(data.money);
       setTycoons(data.tycoons);
       setShopInventory(data.shopInventory);
+      setPlayedCards(data.playedCards || []);
       setGameState(data.gameState);
     }
   };
@@ -433,6 +436,9 @@ export default function CapitalistPoker() {
 
     setIsScoring(true);
     const result = calculateScore(selectedCards, tycoons);
+    
+    // Add selected cards to permanent accumulation
+    setPlayedCards(prev => [...prev, ...selectedCards]);
     
     // Animation delay simulating scoring
     await new Promise(r => setTimeout(r, 600));
@@ -484,6 +490,10 @@ export default function CapitalistPoker() {
     const totalEarned = roundReward + interest;
 
     setMoney(prev => prev + totalEarned);
+    
+    // Clear played cards for next round
+    setPlayedCards([]);
+    
     setGameState('SHOP');
     generateShop();
   };
@@ -926,86 +936,162 @@ export default function CapitalistPoker() {
              {/* Hand Area (Bottom) */}
              <div className="flex-1 w-full flex flex-col justify-end items-center gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-8">
                  
-                 {/* Accumulation Area - Monopoly Style */}
-                 <div className={cn(
-                   "transition-all duration-500 transform",
-                   selectedCards.length > 0 ? "translate-y-0 opacity-100 scale-100" : "translate-y-8 opacity-0 scale-90"
-                 )}>
-                   {selectedCards.length > 0 && (
-                     <div className="flex flex-col items-center gap-3 sm:gap-4">
-                       {/* Accumulation Label */}
-                       <div className="text-xs sm:text-sm text-slate-400 uppercase tracking-widest font-bold">
-                         📊 Accumulating Assets
-                       </div>
-                       
-                       {/* Stacked Cards Display - Dramatic Stack */}
-                       <div className="relative flex justify-center items-center min-h-[140px] sm:min-h-[180px] lg:min-h-[200px]">
-                         {selectedCards.map((card, index) => {
-                           // Create a cascading pile effect - like stacking money!
-                           const totalCards = selectedCards.length;
-                           const xOffset = (index - (totalCards - 1) / 2) * 25; // Wider spread
-                           const yOffset = -index * 8; // Stack upward
-                           const rotation = (index - (totalCards - 1) / 2) * 6; // Slight rotation
-                           const scale = 1 + (index * 0.02); // Each card slightly bigger
-                           
-                           return (
-                             <div
-                               key={card.id}
-                               className="absolute transition-all duration-700 ease-out hover:scale-110 hover:z-50"
-                               style={{
-                                 transform: `translateX(${xOffset}px) translateY(${yOffset}px) rotate(${rotation}deg) scale(${scale})`,
-                                 zIndex: 10 + index,
-                                 filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'
-                               }}
-                             >
-                               <div className="relative">
-                                 {/* Stacking shadow effect - makes it look 3D */}
-                                 <div className="absolute inset-0 bg-black/20 rounded-lg transform translate-y-1 translate-x-1 blur-sm"></div>
-                                 <Card 
-                                   card={card} 
-                                   isSelected={true}
-                                   onClick={toggleCard}
-                                   disabled={isScoring}
-                                 />
-                                 {/* Money counter badge */}
-                                 <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-yellow-600 text-slate-900 font-black text-xs sm:text-sm px-2 py-1 rounded-full border-2 border-yellow-300 shadow-lg animate-pulse">
-                                   #{index + 1}
-                                 </div>
-                               </div>
-                             </div>
-                           );
-                         })}
-                         
-                         {/* Wealth particles effect */}
-                         {selectedCards.length > 0 && (
-                           <>
-                             <div className="absolute inset-0 pointer-events-none">
-                               <div className="absolute top-0 left-1/4 w-2 h-2 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
-                               <div className="absolute top-4 right-1/4 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping opacity-75 animation-delay-300"></div>
-                               <div className="absolute bottom-2 left-1/3 w-1 h-1 bg-blue-400 rounded-full animate-ping opacity-75 animation-delay-500"></div>
-                             </div>
-                           </>
-                         )}
-                       </div>
-                       
-                       {/* Score Prediction Pill */}
-                       <div className="bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md border-2 border-yellow-500/50 rounded-2xl pl-3 sm:pl-6 pr-4 sm:pr-8 py-2 sm:py-3 flex items-center gap-2 sm:gap-4 lg:gap-6 shadow-2xl shadow-yellow-500/30">
-                         <div className="flex flex-col items-end leading-none">
-                           <span className="text-[8px] sm:text-[10px] text-yellow-300 uppercase font-black tracking-widest mb-0.5 sm:mb-1">{prediction.handName}</span>
-                           <div className="flex items-baseline text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tighter">
-                             <span className="text-blue-400">{prediction.chips}</span>
-                             <span className="text-slate-600 mx-0.5 sm:mx-1 text-sm sm:text-xl">×</span>
-                             <span className="text-red-500">{prediction.mult}</span>
-                           </div>
-                         </div>
-                         <ArrowRight className="text-yellow-500 w-4 h-4 sm:w-6 sm:h-6" />
-                         <div className="text-2xl sm:text-3xl lg:text-4xl font-black text-yellow-400 tracking-tighter tabular-nums animate-pulse">
-                           ${prediction.total.toLocaleString()}
-                         </div>
-                       </div>
-                     </div>
-                   )}
-                 </div>
+                      {/* Played Cards - Permanent Portfolio Display */}
+                      {playedCards.length > 0 && (
+                        <div className="w-full max-w-6xl mx-auto px-2 sm:px-4 mb-4">
+                          <div className="flex flex-col items-center gap-3 sm:gap-4">
+                            <div className="text-xs sm:text-sm text-green-400 uppercase tracking-widest font-bold flex items-center gap-2">
+                              <span>🏛️</span> Your Empire <span>🏛️</span>
+                            </div>
+                            
+                            {/* Multi-Zone Card Display - Played Cards */}
+                            <div className="w-full grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                              {(() => {
+                                const properties = playedCards.filter(c => !['RAILROAD', 'UTILITY'].includes(c.colorKey));
+                                const railroads = playedCards.filter(c => c.colorKey === 'RAILROAD');
+                                const utilities = playedCards.filter(c => c.colorKey === 'UTILITY');
+                                const colorGroups = {};
+                                
+                                properties.forEach(card => {
+                                  if (!colorGroups[card.colorKey]) colorGroups[card.colorKey] = [];
+                                  colorGroups[card.colorKey].push(card);
+                                });
+                                
+                                const zones = [];
+                                Object.entries(colorGroups).forEach(([colorKey, cards]) => {
+                                  zones.push({ type: colorKey, cards, label: colorKey });
+                                });
+                                
+                                if (railroads.length > 0) {
+                                  zones.push({ type: 'RAILROAD', cards: railroads, label: 'RAILS' });
+                                }
+                                
+                                if (utilities.length > 0) {
+                                  zones.push({ type: 'UTILITY', cards: utilities, label: 'UTILS' });
+                                }
+                                
+                                return zones.map((zone, zoneIndex) => (
+                                  <div 
+                                    key={zone.type}
+                                    className="relative bg-slate-900/60 backdrop-blur-sm border-2 border-green-700/50 rounded-xl p-2 sm:p-3 flex flex-col items-center min-h-[100px] sm:min-h-[120px] transition-all duration-500"
+                                  >
+                                    <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-green-400 mb-1 sm:mb-2">
+                                      {zone.label}
+                                    </div>
+                                    
+                                    <div className="relative flex-1 flex items-center justify-center w-full">
+                                      {zone.cards.map((card, cardIndex) => {
+                                        const stackOffset = cardIndex * 3;
+                                        const rotation = (Math.random() - 0.5) * 6;
+                                        
+                                        return (
+                                          <div
+                                            key={card.id}
+                                            className="absolute transition-all duration-500"
+                                            style={{
+                                              transform: `translateY(-${stackOffset}px) rotate(${rotation}deg) scale(0.65)`,
+                                              zIndex: 10 + cardIndex,
+                                              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                                            }}
+                                          >
+                                            <div className="relative">
+                                              <div className="absolute inset-0 bg-black/30 rounded-lg transform translate-y-1 translate-x-0.5 blur-sm"></div>
+                                              <Card 
+                                                card={card} 
+                                                isSelected={false}
+                                                onClick={() => {}}
+                                                disabled={true}
+                                              />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    
+                                    <div className="absolute -top-2 -right-2 bg-gradient-to-br from-green-400 to-green-600 text-slate-900 font-black text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border-2 border-green-300 shadow-lg">
+                                      {zone.cards.length}
+                                    </div>
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                 
+                      {/* Current Selection - Simple Stack (Ready to Play) */}
+                      <div className={cn(
+                        "transition-all duration-500 transform",
+                        selectedCards.length > 0 ? "translate-y-0 opacity-100 scale-100" : "translate-y-8 opacity-0 scale-90"
+                      )}>
+                        {selectedCards.length > 0 && (
+                          <div className="flex flex-col items-center gap-3 sm:gap-4">
+                            {/* Selection Label */}
+                            <div className="text-xs sm:text-sm text-yellow-400 uppercase tracking-widest font-bold">
+                              ⚡ Ready to Play
+                            </div>
+                            
+                            {/* Simple Stacked Cards Display */}
+                            <div className="relative flex justify-center items-center min-h-[140px] sm:min-h-[180px] lg:min-h-[200px]">
+                              {selectedCards.map((card, index) => {
+                                const totalCards = selectedCards.length;
+                                const xOffset = (index - (totalCards - 1) / 2) * 25;
+                                const yOffset = -index * 8;
+                                const rotation = (index - (totalCards - 1) / 2) * 6;
+                                const scale = 1 + (index * 0.02);
+                                
+                                return (
+                                  <div
+                                    key={card.id}
+                                    className="absolute transition-all duration-700 ease-out hover:scale-110 hover:z-50"
+                                    style={{
+                                      transform: `translateX(${xOffset}px) translateY(${yOffset}px) rotate(${rotation}deg) scale(${scale})`,
+                                      zIndex: 10 + index,
+                                      filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'
+                                    }}
+                                  >
+                                    <div className="relative">
+                                      <div className="absolute inset-0 bg-black/20 rounded-lg transform translate-y-1 translate-x-1 blur-sm"></div>
+                                      <Card 
+                                        card={card} 
+                                        isSelected={true}
+                                        onClick={toggleCard}
+                                        disabled={isScoring}
+                                      />
+                                      <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-yellow-600 text-slate-900 font-black text-xs sm:text-sm px-2 py-1 rounded-full border-2 border-yellow-300 shadow-lg animate-pulse">
+                                        #{index + 1}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {/* Wealth particles */}
+                              <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute top-0 left-1/4 w-2 h-2 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
+                                <div className="absolute top-4 right-1/4 w-1.5 h-1.5 bg-orange-400 rounded-full animate-ping opacity-75 animation-delay-300"></div>
+                                <div className="absolute bottom-2 left-1/3 w-1 h-1 bg-red-400 rounded-full animate-ping opacity-75 animation-delay-500"></div>
+                              </div>
+                            </div>
+                            
+                            {/* Score Prediction Pill */}
+                            <div className="bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-md border-2 border-yellow-500/50 rounded-2xl pl-3 sm:pl-6 pr-4 sm:pr-8 py-2 sm:py-3 flex items-center gap-2 sm:gap-4 lg:gap-6 shadow-2xl shadow-yellow-500/30">
+                              <div className="flex flex-col items-end leading-none">
+                                <span className="text-[8px] sm:text-[10px] text-yellow-300 uppercase font-black tracking-widest mb-0.5 sm:mb-1">{prediction.handName}</span>
+                                <div className="flex items-baseline text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tighter">
+                                  <span className="text-blue-400">{prediction.chips}</span>
+                                  <span className="text-slate-600 mx-0.5 sm:mx-1 text-sm sm:text-xl">×</span>
+                                  <span className="text-red-500">{prediction.mult}</span>
+                                </div>
+                              </div>
+                              <ArrowRight className="text-yellow-500 w-4 h-4 sm:w-6 sm:h-6" />
+                              <div className="text-2xl sm:text-3xl lg:text-4xl font-black text-yellow-400 tracking-tighter tabular-nums animate-pulse">
+                                ${prediction.total.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                 {/* Cards Hand */}
                 <div className="flex justify-center items-end -space-x-4 sm:-space-x-2 hover:space-x-0 sm:hover:space-x-1 transition-all duration-300 py-2 sm:py-4 px-2 sm:px-4 lg:px-8 overflow-x-auto max-w-full">
