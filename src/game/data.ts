@@ -14,32 +14,32 @@ export const GROUPS: Record<GroupKey, { label: string; setSize: number; color: s
 };
 
 export const HANDS: Record<HandKey, { name: string; multiplier: number; description: string }> = {
-  LIQUIDATION: { name: 'Liquidation', multiplier: 1, description: 'No matching asset group.' },
-  DEVELOPMENT: { name: 'Development', multiplier: 2, description: 'One incomplete pair.' },
-  JOINT_VENTURE: { name: 'Joint Venture', multiplier: 3, description: 'Two separate pairs.' },
-  TAKEOVER: { name: 'Takeover', multiplier: 5, description: 'One completed asset group.' },
-  CONGLOMERATE: { name: 'Conglomerate', multiplier: 7, description: 'A complete group plus another pair.' },
-  DIVERSIFIED: { name: 'Diversified Portfolio', multiplier: 8, description: 'Five cards from five groups.' },
-  TRANSPORT: { name: 'Transport Network', multiplier: 12, description: 'Four distinct railroads.' },
+  LIQUIDATION: { name: 'Likuidasi', multiplier: 1, description: 'Tanpa grup aset yang cocok.' },
+  DEVELOPMENT: { name: 'Pengembangan', multiplier: 2, description: 'Satu pasangan belum lengkap.' },
+  JOINT_VENTURE: { name: 'Usaha Patungan', multiplier: 3, description: 'Dua pasangan terpisah.' },
+  TAKEOVER: { name: 'Pengambilalihan', multiplier: 5, description: 'Satu grup aset lengkap.' },
+  CONGLOMERATE: { name: 'Konglomerat', multiplier: 7, description: 'Grup lengkap plus satu pasangan lain.' },
+  DIVERSIFIED: { name: 'Portofolio Beragam', multiplier: 8, description: 'Lima kartu dari lima grup.' },
+  TRANSPORT: { name: 'Jaringan Transportasi', multiplier: 12, description: 'Empat rel berbeda.' },
 };
 
 /** Market events are public constraints, not surprise punishments. */
 export const MARKET_MODIFIERS: MarketModifier[] = [
-  { id: 'BANJIR', name: 'Banjir', summary: 'Regional and Heritage deeds score 0 this market.', art: 'banjir' },
-  { id: 'MACET', name: 'Macet', summary: 'Transit deeds score half chips this market.', art: 'macet' },
-  { id: 'MATI_LAMPU', name: 'Mati Lampu', summary: 'Utility deeds score 0 this market.', art: 'mati-lampu' },
-  { id: 'GANJIL_GENAP', name: 'Ganjil-Genap', summary: 'Only odd-chip deeds score this market.', art: 'ganjil-genap', parity: 'odd' },
-  { id: 'SIDAK', name: 'Sidak', summary: 'Tycoon effects are disabled this market.', art: 'sidak' },
-  { id: 'MUSIM_KAWIN', name: 'Musim Kawin', summary: 'Lifestyle chips double; all other deed chips are −20%.', art: 'musim-kawin' },
-  { id: 'REKLAMASI', name: 'Reklamasi', summary: 'Three random deeds are removed for this market only.', art: 'reklamasi' },
+  { id: 'BANJIR', name: 'Banjir', summary: 'Aset Regional dan Warisan bernilai 0 di pasar ini.', art: 'banjir' },
+  { id: 'MACET', name: 'Macet', summary: 'Aset Transit hanya menghasilkan setengah chip di pasar ini.', art: 'macet' },
+  { id: 'MATI_LAMPU', name: 'Mati Lampu', summary: 'Aset Utilitas bernilai 0 di pasar ini.', art: 'mati-lampu' },
+  { id: 'GANJIL_GENAP', name: 'Ganjil-Genap', summary: 'Hanya aset chip ganjil yang bernilai di pasar ini.', art: 'ganjil-genap', parity: 'odd' },
+  { id: 'SIDAK', name: 'Sidak', summary: 'Efek semua taipan mati gaya di pasar ini.', art: 'sidak' },
+  { id: 'MUSIM_KAWIN', name: 'Musim Kawin', summary: 'Chip Gaya Hidup dua kali lipat; aset lain −20%.', art: 'musim-kawin' },
+  { id: 'REKLAMASI', name: 'Reklamasi', summary: 'Tiga aset acak disingkirkan hanya untuk pasar ini.', art: 'reklamasi' },
 ];
 
 export const CONSUMABLES: Consumable[] = [
-  { id: 'SERTIFIKAT', name: 'Sertifikat', description: 'Retitle one selected deed into the next asset group.', cost: 3, art: 'sertifikat' },
-  { id: 'NOTARIS', name: 'Notaris', description: 'Copy one selected deed into your discard pile.', cost: 4, art: 'notaris' },
-  { id: 'PUNGLI', name: 'Pungli', description: 'Reroll the public market event. Reklamasi is off the table.', cost: 3, art: 'pungli' },
-  { id: 'UANG_PELICIN', name: 'Uang Pelicin', description: 'Gain one extra hand for this market only.', cost: 4, art: 'uang-pelicin' },
-  { id: 'SITA', name: 'Sita', description: 'Destroy exactly three selected deeds from your hand.', cost: 4, art: 'sita' },
+  { id: 'SERTIFIKAT', name: 'Sertifikat', description: 'Ubah satu aset terpilih ke grup aset berikutnya.', cost: 3, art: 'sertifikat' },
+  { id: 'NOTARIS', name: 'Notaris', description: 'Salin satu aset terpilih ke tumpukan buangan.', cost: 4, art: 'notaris' },
+  { id: 'PUNGLI', name: 'Pungli', description: 'Acak ulang event pasar publik. Reklamasi tidak ikut.', cost: 3, art: 'pungli' },
+  { id: 'UANG_PELICIN', name: 'Uang Pelicin', description: 'Dapatkan satu tangan ekstra hanya untuk pasar ini.', cost: 4, art: 'uang-pelicin' },
+  { id: 'SITA', name: 'Sita', description: 'Musnahkan tepat tiga aset terpilih dari tanganmu.', cost: 4, art: 'sita' },
 ];
 
 export const CARD_TEMPLATES: CardTemplate[] = [

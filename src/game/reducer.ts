@@ -32,7 +32,7 @@ export function createRun(
     marketExile: prepared.exiled,
     selectedIds: [],
     shop: null,
-    events: [{ id: 'opening', actor: 'system', message: `${market.modifier.name}: ${market.modifier.summary} Reach ${marketTarget(1, difficulty, market.modifier).toLocaleString()} in four hands.` }],
+    events: [{ id: 'opening', actor: 'system', message: `${market.modifier.name}: ${market.modifier.summary} Raih ${marketTarget(1, difficulty, market.modifier).toLocaleString()} dalam empat tangan.` }],
     lastPlayerScore: null,
     lastPlayedCards: [],
     muted,
@@ -41,7 +41,7 @@ export function createRun(
   };
 }
 
-const RESHUFFLE_NOTE = 'Your discard pile was reshuffled back into the deck.';
+const RESHUFFLE_NOTE = 'Tumpukan buanganmu diacak kembali ke dek.';
 
 function completeRound(state: GameState, playerScore: GameState['lastPlayerScore']): GameState {
   const runScore = state.runScore + state.player.score;
@@ -50,14 +50,14 @@ function completeRound(state: GameState, playerScore: GameState['lastPlayerScore
     return {
       ...state, phase: 'gameover', runScore, lastPlayerScore: playerScore,
       selectedIds: [],
-      events: event(state, 'system', `Market target missed: ${state.player.score.toLocaleString()} / ${target.toLocaleString()}.`),
+      events: event(state, 'system', `Target pasar gagal: ${state.player.score.toLocaleString()} / ${target.toLocaleString()}.`),
     };
   }
   if (state.round >= MAX_ROUNDS) {
     return {
       ...state, phase: 'victory', runScore, lastPlayerScore: playerScore,
       selectedIds: [],
-      events: event(state, 'system', 'The final market clears. Jakarta is yours.'),
+      events: event(state, 'system', 'Pasar terakhir tembus. Jakarta sekarang milikmu.'),
     };
   }
   const player = awardRound(state.player);
@@ -65,7 +65,7 @@ function completeRound(state: GameState, playerScore: GameState['lastPlayerScore
   return {
     ...state, phase: 'shop', player, shop: generated.shop, rngState: generated.rngState,
     runScore, selectedIds: [], lastPlayerScore: playerScore,
-    events: event(state, 'system', 'Target cleared. The Night Market is open.'),
+    events: event(state, 'system', 'Target tembus. Pasar Malam dibuka.'),
   };
 }
 
@@ -102,7 +102,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.phase !== 'playing' || state.selectedIds.length === 0 || state.player.discardsLeft < 1) return state;
       try {
         const result = discardCards(state.player, state.selectedIds, state.rngState);
-        const message = `You recycled ${state.selectedIds.length} deed${state.selectedIds.length === 1 ? '' : 's'}.`;
+        const message = `Kamu membuang ${state.selectedIds.length} aset.`;
         return {
           ...state, player: result.side, rngState: result.rngState, selectedIds: [],
           reshuffles: state.reshuffles + (result.reshuffled ? 1 : 0),
@@ -114,7 +114,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.phase !== 'playing' || state.selectedIds.length === 0 || state.player.handsLeft < 1) return state;
       try {
         const playerResult = playCards(state.player, state.selectedIds, state.rngState, { modifier: state.modifier });
-        const message = `You scored ${playerResult.score.total.toLocaleString()} with ${playerResult.score.handName}.`;
+        const message = `Kamu mencetak ${playerResult.score.total.toLocaleString()} lewat ${playerResult.score.handName}.`;
         const interim: GameState = {
           ...state,
           player: playerResult.side,
@@ -138,7 +138,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         player: { ...state.player, cash: state.player.cash - price, tycoons: [...state.player.tycoons, tycoon] },
-        events: event(state, 'player', `You hired ${tycoon.name} for $${price}.`),
+        events: event(state, 'player', `Kamu merekrut ${tycoon.name} seharga $${price}.`),
       };
     }
     case 'BUY_CONSUMABLE': {
@@ -151,7 +151,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         player: { ...state.player, cash: state.player.cash - price, consumables: [...state.player.consumables, consumable] },
         shop: { ...state.shop, consumables: state.shop.consumables.filter((item) => item.id !== consumable.id) },
-        events: event(state, 'player', `You bought ${consumable.name} for $${price}.`),
+        events: event(state, 'player', `Kamu membeli ${consumable.name} seharga $${price}.`),
       };
     }
     case 'USE_CONSUMABLE': {
@@ -169,27 +169,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         const card = selected[0];
         const keys = Object.keys(GROUPS) as Array<keyof typeof GROUPS>;
         const group = keys[(keys.indexOf(card.group) + 1) % keys.length];
-        return consume(replaceCard(state.player, card.instanceId, (item) => ({ ...item, group })), `${card.name} was retitled as ${GROUPS[group].label}.`, { selectedIds: [] });
+        return consume(replaceCard(state.player, card.instanceId, (item) => ({ ...item, group })), `${card.name} kini tercatat sebagai ${GROUPS[group].label}.`, { selectedIds: [] });
       }
       if (consumable.id === 'NOTARIS') {
         if (selected.length !== 1) return state;
         const card = selected[0];
         const copy = { ...card, instanceId: `${card.id}-notaris-${state.round}-${state.rngState}` };
-        return consume({ ...state.player, discardPile: [...state.player.discardPile, copy] }, `Notaris copied ${card.name} into your deck.`, { selectedIds: [] });
+        return consume({ ...state.player, discardPile: [...state.player.discardPile, copy] }, `Notaris menyalin ${card.name} ke dekmu.`, { selectedIds: [] });
       }
       if (consumable.id === 'PUNGLI') {
         const eligible = MARKET_MODIFIERS.filter((item) => item.id !== 'REKLAMASI' && item.id !== state.modifier.id);
         const index = state.rngState % eligible.length;
         const modifier = eligible[index];
-        return consume(state.player, `Pungli changes the market to ${modifier.name}.`, { modifier, rngState: (state.rngState * 1664525 + 1013904223) >>> 0 });
+        return consume(state.player, `Pungli mengubah pasar menjadi ${modifier.name}.`, { modifier, rngState: (state.rngState * 1664525 + 1013904223) >>> 0 });
       }
       if (consumable.id === 'UANG_PELICIN') {
-        return consume({ ...state.player, handsLeft: state.player.handsLeft + 1 }, 'Uang Pelicin buys one extra hand for this market.');
+        return consume({ ...state.player, handsLeft: state.player.handsLeft + 1 }, 'Uang Pelicin membeli satu tangan ekstra untuk pasar ini.');
       }
       if (selected.length !== 3) return state;
       const selectedIds = new Set(selected.map((card) => card.instanceId));
       const player = { ...state.player, hand: state.player.hand.filter((card) => !selectedIds.has(card.instanceId)) };
-      return consume(player, 'Sita destroyed three deeds. The deck is leaner now.', { selectedIds: [] });
+      return consume(player, 'Sita memusnahkan tiga aset. Dekmu kini lebih ramping.', { selectedIds: [] });
     }
     case 'BUY_ACQUISITION': {
       if (state.phase !== 'shop' || !state.shop) return state;
@@ -201,7 +201,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         player: { ...state.player, cash: state.player.cash - price, discardPile: [...state.player.discardPile, card] },
-        events: event(state, 'player', `You acquired an upgraded ${card.name} (+8 chips) for $${price}.`),
+        events: event(state, 'player', `Kamu mengakuisisi ${card.name} yang sudah ditingkatkan (+8 chip) seharga $${price}.`),
       };
     }
     case 'RENOVATE': {
@@ -215,7 +215,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         player: { ...replaceCard(state.player, action.cardId, (card) => ({ ...card, bonus: card.bonus + gain })), cash: state.player.cash - price },
         shop: { ...state.shop, renovations: state.shop.renovations + 1 },
-        events: event(state, 'player', `Renovation complete: +${gain} permanent chips for $${price}.`),
+        events: event(state, 'player', `Renovasi rampung: +${gain} chip permanen seharga $${price}.`),
       };
     }
     case 'LIQUIDATE': {
@@ -227,7 +227,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         player: { ...changed, cash: changed.cash + 1 },
         shop: { ...state.shop, liquidated: true },
-        events: event(state, 'player', 'One deed was liquidated for $1.'),
+        events: event(state, 'player', 'Satu aset dilikuidasi demi $1.'),
       };
     }
     case 'REROLL_SHOP': {
@@ -236,7 +236,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const generated = generateShop(paidPlayer.tycoons, state.rngState);
       return {
         ...state, player: paidPlayer, shop: { ...generated.shop, rerollCost: state.shop.rerollCost + 1 },
-        rngState: generated.rngState, events: event(state, 'player', 'Market inventory rerolled.'),
+        rngState: generated.rngState, events: event(state, 'player', 'Inventaris pasar diacak ulang.'),
       };
     }
     case 'NEXT_ROUND': {
@@ -247,7 +247,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state, phase: 'playing', round: state.round + 1, player: playerReset.side,
         rngState: playerReset.rngState, modifier: market.modifier, marketExile: playerReset.exiled,
         shop: null, selectedIds: [], lastPlayerScore: null, lastPlayedCards: [],
-        events: [{ id: `round-${state.round + 1}`, actor: 'system', message: `${market.modifier.name}: ${market.modifier.summary} Reach ${marketTarget(state.round + 1, state.difficulty, market.modifier).toLocaleString()}.` }],
+        events: [{ id: `round-${state.round + 1}`, actor: 'system', message: `${market.modifier.name}: ${market.modifier.summary} Raih ${marketTarget(state.round + 1, state.difficulty, market.modifier).toLocaleString()}.` }],
       };
     }
     default:

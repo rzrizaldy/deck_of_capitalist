@@ -581,14 +581,15 @@ function CompanionRail({ state }: { state: GameState }) {
 }
 
 function ConsumableRack({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
+  const locale = useLocale();
   const selected = state.selectedIds.length;
   const canUse = (item: Consumable) => {
     if (item.id === 'SERTIFIKAT' || item.id === 'NOTARIS') return selected === 1;
     if (item.id === 'SITA') return selected === 3;
     return true;
   };
-  return <section className="consumable-rack" aria-label="Held market tools">
-    <header><span>Market tools</span><b>{state.player.consumables.length}/2</b></header>
+  return <section className="consumable-rack" aria-label={tr(locale, 'Held market tools', 'Peralatan pasar tersimpan')}>
+    <header><span>{tr(locale, 'Market tools', 'Peralatan pasar')}</span><b>{state.player.consumables.length}/2</b></header>
     {state.player.consumables.length ? <div>
       {state.player.consumables.map((item) => <article key={item.id}>
         <img src={`/assets/consumables/${item.art}.webp`} alt="" />
@@ -596,11 +597,11 @@ function ConsumableRack({ state, dispatch }: { state: GameState; dispatch: Dispa
         <button
           className="secondary"
           disabled={!canUse(item)}
-          title={!canUse(item) ? item.id === 'SITA' ? 'Select exactly three deeds first.' : 'Select exactly one deed first.' : undefined}
+          title={!canUse(item) ? item.id === 'SITA' ? tr(locale, 'Select exactly three deeds first.', 'Pilih tepat tiga aset dulu.') : tr(locale, 'Select exactly one deed first.', 'Pilih tepat satu aset dulu.') : undefined}
           onClick={() => { unlockAudio(); dispatch({ type: 'USE_CONSUMABLE', consumableId: item.id }); playSound('purchase', state.muted); pulseHaptic(7); }}
-        >Use</button>
+        >{tr(locale, 'Use', 'Pakai')}</button>
       </article>)}
-    </div> : <p>Win a market to buy one-use tools.</p>}
+    </div> : <p>{tr(locale, 'Win a market to buy one-use tools.', 'Tembus satu pasar untuk membeli alat sekali pakai.')}</p>}
   </section>;
 }
 
@@ -682,7 +683,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
           <CompanionRail state={state} />
           <div className="market-log" aria-live="polite">
             <span>Market desk</span>
-            <p>{busy ? 'Portfolio settling…' : state.events.at(-1)?.message}</p>
+            <p>{busy ? tr(locale, 'Portfolio settling…', 'Portofolio sedang dihitung…') : state.events.at(-1)?.message}</p>
           </div>
         </aside>
         <section className="play-zone">
@@ -692,7 +693,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             {Array.from({ length: 4 }, (_, index) => <span key={index} className={index >= state.player.handsLeft ? 'done' : ''} />)}
           </div>
           <div className="market-target">
-            <span><Target aria-hidden="true" /> {MARKET_DIFFICULTY[state.difficulty].label} target</span>
+            <span><Target aria-hidden="true" /> {MARKET_DIFFICULTY[state.difficulty].label} {tr(locale, 'target', 'target')}</span>
             <strong>{money(target)}</strong>
             <ProgressRail score={state.player.score} target={target} tone="table" />
             <small>{remaining ? tr(locale, `${money(remaining)} to clear`, `${money(remaining)} lagi untuk tembus`) : tr(locale, 'Target cleared', 'Target tercapai')}</small>
@@ -702,15 +703,15 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             <span><b>{state.modifier.name}</b>{state.modifier.summary}</span>
           </div>
           <section className="tycoon-shelf" aria-label="Your Tycoon helpers">
-            <header><Crown aria-hidden="true" /><span>Inner circle</span><b>{state.player.tycoons.length}/{MAX_TYCOONS}</b></header>
+            <header><Crown aria-hidden="true" /><span>{tr(locale, 'Inner circle', 'Lingkar dalam')}</span><b>{state.player.tycoons.length}/{MAX_TYCOONS}</b></header>
             <div className="tycoon-lineup">
               {state.player.tycoons.length
                 ? state.player.tycoons.map((tycoon) => <TycoonCard key={tycoon.id} tycoon={tycoon} compact onInspect={() => setInspectedTycoon(tycoon)} />)
-                : <p>Clear this market, then hire a Tycoon at the Night Market.</p>}
+                : <p>{tr(locale, 'Clear this market, then hire a Tycoon at the Night Market.', 'Tembus pasar ini, lalu rekrut taipan di Pasar Malam.')}</p>}
             </div>
           </section>
           <div className={`played-tray ${state.lastPlayedCards.length ? 'has-cards' : ''}`} aria-live="polite">
-            <span className="played-label">{state.lastPlayedCards.length ? 'Last portfolio played' : 'Play your first portfolio'}</span>
+            <span className="played-label">{state.lastPlayedCards.length ? tr(locale, 'Last portfolio played', 'Portofolio terakhir') : tr(locale, 'Play your first portfolio', 'Mainkan portofolio pertamamu')}</span>
             <div className="played-cards">
               {state.lastPlayedCards.map((card, index) => <AssetCard key={card.instanceId} card={card} compact index={index} onInspect={() => setInspectedCard(card)} />)}
             </div>
@@ -720,15 +721,15 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             <ScoreCascade sequence={sequence} />
           </div>}
           <div className="last-hands">
-            <ScoreFormula score={state.lastPlayerScore} label="Your last hand" />
+            <ScoreFormula score={state.lastPlayerScore} label={tr(locale, 'Your last hand', 'Tangan terakhirmu')} />
           </div>
-          <ScoreFormula score={prediction} label="Selected hand" />
+          <ScoreFormula score={prediction} label={tr(locale, 'Selected hand', 'Tangan terpilih')} />
         </section>
 
         <aside className="player-panel">
-          <div className="player-resource"><span>Hands</span><strong>{state.player.handsLeft}</strong></div>
-          <div className="player-resource"><span>Discards</span><strong>{state.player.discardsLeft}</strong></div>
-          <div className="player-resource gold"><span>Capital</span><strong>${state.player.cash}</strong></div>
+          <div className="player-resource"><span>{tr(locale, 'Hands', 'Tangan')}</span><strong>{state.player.handsLeft}</strong></div>
+          <div className="player-resource"><span>{tr(locale, 'Discards', 'Buang')}</span><strong>{state.player.discardsLeft}</strong></div>
+          <div className="player-resource gold"><span>{tr(locale, 'Capital', 'Modal')}</span><strong>${state.player.cash}</strong></div>
           <div className={`deck-count ${reshuffling ? 'reshuffling' : ''}`}>
             <span>Deck</span><b>{deckSize(state.player)}</b>
             {reshuffling && <em aria-hidden="true">reshuffled</em>}
