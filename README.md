@@ -4,15 +4,9 @@ A browser-based, pixel-noir property roguelike set above nighttime Jakarta. Buil
 
 ## Play
 
-**[Play Deck of Capitalist](https://deck-of-capitalist-dkk8u.ondigitalocean.app)** — the live DigitalOcean App Platform URL.
+**[Play Deck of Capitalist](https://deck-of-capitalist.allrize.tech)** — the live DigitalOcean App Platform URL.
 
-The custom domain `deck-of-capitalist.allrize.ai` is **pending DNS**. It is registered on the app as the primary domain, but the record does not exist yet, so no certificate has been issued and the hostname does not resolve. The zone `allrize.ai` runs on Cloudflare nameservers. To finish it, add in the Cloudflare dashboard for `allrize.ai`:
-
-| Type | Name | Target | Proxy |
-| --- | --- | --- | --- |
-| CNAME | `deck-of-capitalist` | `deck-of-capitalist-dkk8u.ondigitalocean.app` | **DNS only (grey cloud)** |
-
-The proxy must stay off — an orange-cloud record terminates TLS at Cloudflare and DigitalOcean's Let's Encrypt validation never completes. Once the record resolves, App Platform advances past `verify-cname` and issues the certificate automatically.
+The custom domain is the App Platform primary domain. Its CNAME points to `deck-of-capitalist-dkk8u.ondigitalocean.app`, and App Platform has issued the HTTPS certificate.
 
 The whole game runs solo: there is no rival, no bot, and no online opponent. Difficulty changes the market target thresholds only.
 
