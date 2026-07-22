@@ -1,45 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { rankLegalPlays } from '../src/game/bot';
-import { generateShop } from '../src/game/engine';
+import { generateShop, scoreHand } from '../src/game/engine';
 import { createRun, gameReducer } from '../src/game/reducer';
 import type { GameState } from '../src/game/types';
 
 function commitBest(state: GameState): GameState {
-  const ids = rankLegalPlays(state.player)[0].cards.map((card) => card.instanceId);
+  const ids = [...state.player.hand]
+    .sort((a, b) => scoreHand([b], state.player.tycoons).total - scoreHand([a], state.player.tycoons).total)
+    .slice(0, 5)
+    .map((card) => card.instanceId);
   let current = state;
   ids.forEach((cardId) => { current = gameReducer(current, { type: 'TOGGLE_CARD', cardId }); });
   return gameReducer(current, { type: 'PLAYER_PLAY' });
 }
 
 describe('campaign reducer', () => {
-  it('creates independently shuffled equal-size decks from one seed', () => {
-    const run = createRun('trader', 100);
+  it('creates a seeded solo market deck', () => {
+    const run = createRun(100);
     expect(run.player.hand).toHaveLength(8);
-    expect(run.bot.hand).toHaveLength(8);
     expect(run.player.drawPile).toHaveLength(32);
-    expect(run.bot.drawPile).toHaveLength(32);
-    expect(run.player.hand.map((card) => card.instanceId)).not.toEqual(run.bot.hand.map((card) => card.instanceId));
+    expect(run.player.hand.map((card) => card.instanceId)).toEqual(createRun(100).player.hand.map((card) => card.instanceId));
   });
 
-  it('resolves a full four-bout round without illegal state', () => {
-    let run = createRun('casual', 2026);
+  it('resolves a full four-hand solo round without illegal state', () => {
+    let run = createRun(2026);
     for (let hand = 0; hand < 4; hand += 1) run = commitBest(run);
     expect(['shop', 'gameover']).toContain(run.phase);
     expect(run.player.handsLeft).toBe(0);
-    expect(run.bot.handsLeft).toBe(0);
     expect(run.runScore).toBeGreaterThan(0);
   }, 20_000);
 
   it('caps selection at five cards and rejects empty plays', () => {
-    let run = createRun('trader', 55);
+    let run = createRun(55);
     run.player.hand.forEach((card) => { run = gameReducer(run, { type: 'TOGGLE_CARD', cardId: card.instanceId }); });
     expect(run.selectedIds).toHaveLength(5);
-    const empty = createRun('trader', 55);
+    const empty = createRun(55);
     expect(gameReducer(empty, { type: 'PLAYER_PLAY' })).toBe(empty);
   });
 
   it('supports acquisition, renovation, liquidation, and Tycoon purchases', () => {
-    const run = createRun('trader', 909);
+    const run = createRun(909);
     const generated = generateShop([], run.rngState);
     let market: GameState = {
       ...run,
@@ -60,20 +59,18 @@ describe('campaign reducer', () => {
   });
 
   it('resolves explicit final-round victory and defeat states', () => {
-    const base = createRun('casual', 404);
+    const base = createRun(404);
     const selected = base.player.hand[0].instanceId;
     const finalBase: GameState = {
       ...base,
       round: 8,
       selectedIds: [selected],
       player: { ...base.player, handsLeft: 1, score: 1_000_000 },
-      bot: { ...base.bot, handsLeft: 1, score: 0 },
     };
     expect(gameReducer(finalBase, { type: 'PLAYER_PLAY' }).phase).toBe('victory');
     const losing: GameState = {
       ...finalBase,
       player: { ...finalBase.player, score: 0 },
-      bot: { ...finalBase.bot, score: 1_000_000 },
     };
     expect(gameReducer(losing, { type: 'PLAYER_PLAY' }).phase).toBe('gameover');
   }, 20_000);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import {
-  BookOpen, Bot, Building2, Coins, Crown, RotateCcw,
+  BookOpen, Building2, Coins, Crown, RotateCcw,
   Eye, Sparkles, Train, Trash2, Trophy, Volume2, VolumeX, Wrench, X, Zap,
 } from 'lucide-react';
 import { playSound } from './game/audio';
@@ -8,7 +8,7 @@ import { CARD_TEMPLATES, GROUPS, HANDS } from './game/data';
 import { allCards, deckSize, marketTarget, priceFor, scoreHand } from './game/engine';
 import { clearSave, loadSave, migrateLegacySave, recordHighScore, saveGame } from './game/persistence';
 import { gameReducer, initialState } from './game/reducer';
-import type { Card, Difficulty, GameState, ScoreBreakdown, Tycoon } from './game/types';
+import type { Card, GameState, ScoreBreakdown, Tycoon } from './game/types';
 
 const money = (value: number) => value.toLocaleString('en-US');
 
@@ -57,8 +57,16 @@ function CardPreview({ card, onClose }: { card: Card; onClose: () => void }) {
   </div>;
 }
 
-function TycoonToken({ tycoon }: { tycoon: Tycoon }) {
-  return <div className="tycoon-token" title={tycoon.description}><Crown /> <span>{tycoon.name}</span></div>;
+function TycoonCard({ tycoon, compact = false, children }: { tycoon: Tycoon; compact?: boolean; children?: React.ReactNode }) {
+  return <article className={`tycoon-card ${compact ? 'compact' : ''}`}>
+    <img src={`/assets/tycoons/${tycoon.id}.webp`} alt={`${tycoon.name} tycoon helper`} loading="lazy" />
+    <div className="tycoon-card-copy">
+      <span><Crown aria-hidden="true" /> Tycoon</span>
+      <h3>{tycoon.name}</h3>
+      {!compact && <p>{tycoon.description}</p>}
+      {children}
+    </div>
+  </article>;
 }
 
 function ScoreFormula({ score, label }: { score: ScoreBreakdown | null; label: string }) {
@@ -122,12 +130,12 @@ function Guide({ onClose }: { onClose: () => void }) {
     <Modal title="The Market Ledger" onClose={onClose}>
       <div className="guide-grid">
         <section>
-          <h3>How the duel works</h3>
+          <h3>How the run works</h3>
           <ol>
             <li>Draw eight deeds. Select one to five and score a portfolio.</li>
             <li>Use up to three discards per round to improve your hand.</li>
             <li>A published Market Target is the win condition. Clear it within four hands.</li>
-            <li>The rival answers under the same rules as an atmospheric benchmark; beating it earns bragging rights, not survival.</li>
+            <li>Tycoons recruited at the Night Market sit on the table and enhance every portfolio they affect.</li>
             <li>Clear eight escalating markets, then take the city.</li>
           </ol>
         </section>
@@ -162,7 +170,6 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
   state: GameState; saved: GameState | null; highScore: number; legacyCleared: boolean;
   dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]>;
 }) {
-  const [difficulty, setDifficulty] = useState<Difficulty>('trader');
   const [guide, setGuide] = useState(false);
   const [compendium, setCompendium] = useState(false);
   return (
@@ -176,16 +183,8 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
         <h1>Be a corrupt tycoon.</h1>
         <p className="menu-copy">Build ruthless portfolios, hire tycoons, and clear eight escalating Jakarta market targets.</p>
         {legacyCleared && <p className="notice">The incompatible prototype save was retired. Your legacy high score remains.</p>}
-        <fieldset className="difficulty-picker">
-          <legend>Rival difficulty</legend>
-          {(['casual', 'trader', 'tycoon'] as Difficulty[]).map((item) => (
-            <button key={item} className={difficulty === item ? 'active' : ''} onClick={() => setDifficulty(item)} type="button">
-              <strong>{item}</strong><small>{item === 'casual' ? 'Bold, imperfect' : item === 'trader' ? 'Calculated' : 'Relentless'}</small>
-            </button>
-          ))}
-        </fieldset>
         <div className="menu-actions">
-          <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN', difficulty })}><Sparkles /> Start market run</button>
+          <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN' })}><Sparkles /> Start market run</button>
           {saved && <button className="secondary large" onClick={() => dispatch({ type: 'LOAD', state: saved })}>Continue round {saved.round}</button>}
         </div>
         <div className="menu-subactions">
@@ -213,7 +212,6 @@ function Hud({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<P
           <div><span>Target</span><strong>{money(marketTarget(state.round))}</strong></div>
         </div>
         <div className="hud-actions">
-          <span className={`difficulty-tag ${state.difficulty}`}>{state.difficulty}</span>
           <button className="icon-button" onClick={() => setGuide(true)} aria-label="Open rules"><BookOpen /></button>
           <button className="icon-button" onClick={() => dispatch({ type: 'SET_MUTED', muted: !state.muted })} aria-label={state.muted ? 'Unmute' : 'Mute'}>{state.muted ? <VolumeX /> : <Volume2 />}</button>
           <button className="icon-button" onClick={() => dispatch({ type: 'GO_MENU' })} aria-label="Return to menu"><X /></button>
@@ -249,9 +247,6 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const selected = state.player.hand.filter((card) => state.selectedIds.includes(card.instanceId));
   const prediction = useMemo(() => selected.length ? scoreHand(selected, state.player.tycoons) : null, [selected, state.player.tycoons]);
-  const rivalName = state.round === 8 ? 'The Chairman' : 'Market Watcher';
-  const portrait = state.round === 8 ? '/assets/generated/final-chairman-v2.png' : '/assets/generated/rival-broker-v2.png';
-
   const toggle = (cardId: string) => { dispatch({ type: 'TOGGLE_CARD', cardId }); playSound('select', state.muted); };
   const play = () => {
     if (!selected.length || busy) return;
@@ -285,19 +280,20 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
     <main className="game-screen">
       <Hud state={state} dispatch={dispatch} />
       <section className="table-layout">
-        <aside className="rival-panel">
-          <img src={portrait} alt={rivalName} />
-          <div><span>Your rival</span><h2>{rivalName}</h2><p>{busy ? 'Calculating every angle…' : state.events.at(-2)?.message ?? 'Waiting for your move.'}</p></div>
-          <div className="rival-resources"><span><b>{state.bot.handsLeft}</b> hands</span><span><b>{state.bot.discardsLeft}</b> discards</span><span><b>${state.bot.cash}</b> capital</span></div>
-          <div className="token-row">{state.bot.tycoons.map((tycoon) => <TycoonToken key={tycoon.id} tycoon={tycoon} />)}</div>
-        </aside>
-
         <section className="play-zone">
           <div className="table-kicker"><span>Jakarta market blind</span><b>Ante {state.round}</b></div>
           <div className="round-track" aria-label={`Hand ${5 - state.player.handsLeft} of 4`}>
             {Array.from({ length: 4 }, (_, index) => <span key={index} className={index >= state.player.handsLeft ? 'done' : ''} />)}
           </div>
           <div className="market-target"><span>Target score</span><strong>{money(marketTarget(state.round))}</strong><small>{money(Math.max(0, marketTarget(state.round) - state.player.score))} to clear</small></div>
+          <section className="tycoon-shelf" aria-label="Your Tycoon helpers">
+            <header><Crown aria-hidden="true" /><span>Inner circle</span><b>{state.player.tycoons.length}/5</b></header>
+            <div className="tycoon-lineup">
+              {state.player.tycoons.length
+                ? state.player.tycoons.map((tycoon) => <TycoonCard key={tycoon.id} tycoon={tycoon} compact />)
+                : <p>Clear this blind, then hire a Tycoon at the Night Market.</p>}
+            </div>
+          </section>
           <div className={`played-tray ${state.lastPlayedCards.length ? 'has-cards' : ''}`} aria-live="polite">
             <span className="played-label">{state.lastPlayedCards.length ? 'Last portfolio played' : 'Play your first portfolio'}</span>
             <div className="played-cards">
@@ -306,9 +302,8 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
           </div>
           <div className="last-hands">
             <ScoreFormula score={state.lastPlayerScore} label="Your last hand" />
-            <ScoreFormula score={state.lastBotScore} label="Rival response" />
           </div>
-          <div className="event-ticker" aria-live="polite">{busy ? `${rivalName} studies the market…` : state.events.at(-1)?.message}</div>
+          <div className="event-ticker" aria-live="polite">{busy ? 'The market settles your portfolio…' : state.events.at(-1)?.message}</div>
           <ScoreFormula score={prediction} label="Selected hand" />
         </section>
 
@@ -317,7 +312,6 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
           <div className="player-resource"><span>Discards</span><strong>{state.player.discardsLeft}</strong></div>
           <div className="player-resource gold"><span>Capital</span><strong>${state.player.cash}</strong></div>
           <div className="deck-count"><span>Deck</span><b>{deckSize(state.player)}</b></div>
-          <div className="token-row">{state.player.tycoons.map((tycoon) => <TycoonToken key={tycoon.id} tycoon={tycoon} />)}</div>
         </aside>
       </section>
 
@@ -327,7 +321,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
         </div>
         <div className="play-actions">
           <button className="secondary" disabled={!selected.length || state.player.discardsLeft < 1 || busy} onClick={discard}><RotateCcw /> Discard <small>{selected.length || ''}</small></button>
-          <button className="primary" disabled={!selected.length || busy} onClick={play}><Coins /> {busy ? 'Rival thinking…' : 'Commit portfolio'}</button>
+          <button className="primary" disabled={!selected.length || busy} onClick={play}><Coins /> {busy ? 'Scoring portfolio…' : 'Commit portfolio'}</button>
         </div>
       </section>
       {inspectedCard && <CardPreview card={inspectedCard} onClose={() => setInspectedCard(null)} />}
@@ -352,7 +346,7 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<
             {shop.tycoons.map((tycoon) => {
               const price = priceFor(state.player, tycoon.cost);
               const owned = state.player.tycoons.some((item) => item.id === tycoon.id);
-              return <article className="shop-card" key={tycoon.id}><Crown /><h3>{tycoon.name}</h3><p>{tycoon.description}</p><button disabled={owned || state.player.cash < price || state.player.tycoons.length >= 5} onClick={() => buy({ type: 'BUY_TYCOON', tycoonId: tycoon.id })}>{owned ? 'Hired' : `Hire · $${price}`}</button></article>;
+              return <TycoonCard key={tycoon.id} tycoon={tycoon}><button disabled={owned || state.player.cash < price || state.player.tycoons.length >= 5} onClick={() => buy({ type: 'BUY_TYCOON', tycoonId: tycoon.id })}>{owned ? 'Hired' : `Hire · $${price}`}</button></TycoonCard>;
             })}
           </div>
         </section>
@@ -384,12 +378,12 @@ function Ending({ state, dispatch }: { state: GameState; dispatch: React.Dispatc
     <main className={`ending ${won ? 'won' : 'lost'}`} style={{ backgroundImage: `url(/assets/generated/${won ? 'victory-jakarta.webp' : 'bankruptcy-jakarta.webp'})` }}>
       <div className="ending-shade" />
       <section>
-        {won ? <Trophy /> : <Bot />}
+        {won ? <Trophy /> : <Coins />}
         <span>{won ? 'Eight markets conquered' : `Run ended in round ${state.round}`}</span>
         <h1>{won ? 'The city is yours.' : 'The market collected.'}</h1>
         <p>{won ? 'The final market has cleared.' : `You needed ${money(marketTarget(state.round))} and closed at ${money(state.player.score)}.`}</p>
         <div className="ending-score"><span>Run score</span><strong>{money(state.runScore)}</strong></div>
-        <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN', difficulty: state.difficulty })}><Sparkles /> Run it back</button>
+        <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN' })}><Sparkles /> Run it back</button>
         <button className="ghost" onClick={() => dispatch({ type: 'GO_MENU' })}>Return to title</button>
       </section>
     </main>

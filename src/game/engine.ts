@@ -224,8 +224,8 @@ export function resetForRound(side: CompetitorState, rngState: number): { side: 
 export function emptyState(muted = false): GameState {
   const empty: CompetitorState = { drawPile: [], discardPile: [], hand: [], score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3 };
   return {
-    version: 2, phase: 'menu', difficulty: 'trader', round: 1, seed: 1, rngState: 1,
-    player: empty, bot: { ...empty }, selectedIds: [], shop: null, events: [],
-    lastPlayerScore: null, lastBotScore: null, lastPlayedCards: [], muted, runScore: 0,
+    version: 2, phase: 'menu', round: 1, seed: 1, rngState: 1,
+    player: empty, selectedIds: [], shop: null, events: [],
+    lastPlayerScore: null, lastPlayedCards: [], muted, runScore: 0,
   };
 }

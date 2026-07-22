@@ -12,7 +12,7 @@ Desktop and landscape mobile are supported. Portrait mobile displays a rotation 
 
 ## Rules
 
-Each market gives you an independently shuffled copy of the persistent deck, an eight-card hand, four scoring plays, and three discard actions. Select one to five cards. A published Market Target is the win condition: clear it by the end of your fourth hand. The rival still answers using the same scoring engine and only its own private state, but is a visible benchmark rather than a loss gate.
+Each market gives you an independently shuffled copy of the persistent deck, an eight-card hand, four scoring plays, and three discard actions. Select one to five cards. A published Market Target is the only win condition: clear it by the end of your fourth hand.
 
 | Portfolio | Requirement | Multiplier |
 | --- | --- | ---: |
@@ -26,15 +26,7 @@ Each market gives you an independently shuffled copy of the persistent deck, an 
 
 Scoring is `(card chips + chip bonuses) × (base multiplier + multiplier bonuses) × multiplicative effects`.
 
-Winning opens the Night Market. Hire up to five Tycoons, acquire deeds, renovate one deed by `+5` chips, liquidate one deed while the deck remains above 32 cards, or reroll the offers. Both rivals begin with `$4` and receive `$5 + interest` after each round.
-
-## Fair AI
-
-- **Casual** chooses probabilistically among strong legal plays.
-- **Trader** uses deeper discard simulations and selects among the best candidates.
-- **Tycoon** uses the deepest evaluation and commits the highest estimated-value play.
-
-The bot never sees the player’s hand or RNG future. Every decision is seeded, reproducible, and submitted through the same play/discard functions used by the player.
+Winning opens the Night Market. Hire up to five illustrated Tycoon helpers, acquire deeds, renovate one deed by `+5` chips, liquidate one deed while the deck remains above 32 cards, or reroll the offers. You begin with `$4` and receive `$5 + interest` after each cleared market. Hired Tycoons stay visible at the centre of the table and apply their effects to matching portfolios.
 
 ## Development
 
@@ -53,4 +45,4 @@ The project uses React, TypeScript, Vite, Vitest, and Playwright. Saves are vers
 
 ## Artwork
 
-The table, two fictional rival portraits, ending scenes, and all 32 unique deed-card illustrations are original pixel-noir assets generated for this project with OpenAI ImageGen. The UI and scoring visuals remain code-native for legibility and responsive behavior.
+The table, ending scenes, all 32 unique deed-card illustrations, and 10 unique Tycoon helper-card illustrations are original pixel-noir assets generated for this project with OpenAI ImageGen. The UI and scoring visuals remain code-native for legibility and responsive behavior.

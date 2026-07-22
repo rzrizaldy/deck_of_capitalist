@@ -284,6 +284,43 @@ kbd { border: 1px solid #3b4852; background: #121b23; border-radius: 4px; paddin
   .shop-card p { font-size: .62rem; }
 }
 
+/* Solo-blind pass: the center is now a playing table, with Tycoons as helpers. */
+.table-layout { width: min(1090px, 100%); grid-template-columns: minmax(0, 1fr) minmax(122px, .22fr); }
+.play-zone { grid-template-rows: auto auto auto auto minmax(72px, 1fr) auto auto; }
+.last-hands { top: 8%; right: 3%; left: auto; width: 150px; grid-template-columns: 1fr; }
+.tycoon-shelf { position: relative; z-index: 1; width: min(590px, 94%); padding: .28rem .42rem .36rem; border-top: 1px solid rgba(230,202,121,.28); border-bottom: 1px solid rgba(230,202,121,.16); background: rgba(1,11,10,.2); }
+.tycoon-shelf > header { display: flex; align-items: center; justify-content: center; gap: .34rem; color: #e8cf88; font: .48rem DM Mono, monospace; letter-spacing: .12em; text-transform: uppercase; }
+.tycoon-shelf > header svg { width: 11px; height: 11px; }
+.tycoon-shelf > header b { color: #fff0ad; font-weight: 500; }
+.tycoon-lineup { min-height: 42px; display: flex; justify-content: center; align-items: center; gap: .28rem; padding-top: .25rem; }
+.tycoon-lineup > p { margin: 0; color: rgba(236,221,171,.58); font: .52rem DM Mono, monospace; }
+.tycoon-card { position: relative; min-height: 214px; overflow: hidden; border: 1px solid rgba(222,178,73,.6); border-radius: 10px; background: #071310; box-shadow: 0 9px 20px rgba(0,0,0,.4); display: flex; flex-direction: column; }
+.tycoon-card > img { width: 100%; height: 130px; object-fit: cover; object-position: center; image-rendering: pixelated; }
+.tycoon-card-copy { display: flex; flex: 1; flex-direction: column; padding: .48rem .58rem .6rem; background: linear-gradient(180deg, rgba(9,30,26,.9), #07120f); }
+.tycoon-card-copy > span { display: flex; align-items: center; gap: .23rem; color: #e5c66f; font: .52rem DM Mono, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.tycoon-card-copy > span svg { width: 11px; height: 11px; }
+.tycoon-card h3 { margin: .22rem 0; color: #fff0b5; font-size: .84rem; line-height: 1.05; }
+.tycoon-card p { margin: 0 0 .55rem; color: #b8c7b4; font-size: .66rem; line-height: 1.3; flex: 1; }
+.tycoon-card button { width: 100%; min-height: 36px; border: 1px solid rgba(230,193,89,.5); border-radius: 6px; background: linear-gradient(180deg, #c68e31, #7d4d17); color: #fff3c2; font: 700 .68rem Inter, sans-serif; cursor: pointer; }
+.tycoon-card.compact { width: 63px; min-height: 74px; flex: 0 0 63px; border-radius: 6px; animation: table-play .3s cubic-bezier(.2,.8,.2,1) both; }
+.tycoon-card.compact > img { height: 74px; }
+.tycoon-card.compact .tycoon-card-copy { position: absolute; inset: auto 0 0; min-height: 22px; padding: .15rem .2rem; background: linear-gradient(transparent, rgba(0,0,0,.94)); }
+.tycoon-card.compact .tycoon-card-copy > span { display: none; }
+.tycoon-card.compact h3 { margin: 0; overflow: hidden; color: #fff2c6; font-size: .42rem; line-height: 1.1; text-align: center; white-space: nowrap; text-overflow: ellipsis; }
+.shop-grid .tycoon-card { min-width: 0; }
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .table-layout { grid-template-columns: minmax(0,1fr) 86px; }
+  .last-hands { display: none; }
+  .tycoon-shelf { width: min(390px, 92%); padding-block: .14rem; }
+  .tycoon-shelf > header { font-size: .36rem; }
+  .tycoon-lineup { min-height: 34px; padding-top: .12rem; }
+  .tycoon-lineup > p { font-size: .4rem; }
+  .tycoon-card.compact { width: 44px; min-height: 48px; flex-basis: 44px; }
+  .tycoon-card.compact > img { height: 48px; }
+  .tycoon-card.compact h3 { font-size: .32rem; }
+}
+
 @media (max-width: 620px) and (orientation: landscape) {
   .rival-panel p, .last-hands, .player-panel .token-row, .rival-panel > .token-row { display: none; }
   .table-layout { grid-template-columns: 120px 1fr 100px; }
@@ -427,4 +464,23 @@ kbd { border: 1px solid #3b4852; background: #121b23; border-radius: 4px; paddin
   .hand-cards .asset-card:nth-child(8) { transform: translateY(-18px) rotate(11deg); }
   .play-actions { right: .25rem; bottom: .3rem; padding: .22rem; }
   .play-actions button { min-width: 128px; min-height: 34px; font-size: .58rem; }
+}
+
+/* Final solo table geometry — declared after the legacy three-seat layout. */
+.table-layout { width: min(1090px, 100%); grid-template-columns: minmax(0, 1fr) minmax(122px, .22fr); }
+.play-zone { grid-template-rows: auto auto auto auto minmax(72px, 1fr) auto auto; }
+.last-hands { top: 8%; right: 3%; left: auto; width: 150px; grid-template-columns: 1fr; }
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .table-layout { grid-template-columns: minmax(0, 1fr) 86px; }
+  .game-screen { height: 100dvh; min-height: 100dvh; grid-template-rows: 44px minmax(0, 1fr) 112px; }
+  .table-layout, .play-zone { min-height: 0; }
+  .play-zone { grid-template-rows: auto auto auto minmax(38px, 1fr) auto auto; }
+  .played-tray { min-height: 38px; }
+  .played-label { font-size: .4rem; }
+  .event-ticker { min-height: 17px; font-size: .42rem; }
+  .play-zone > .score-formula:last-child { min-height: 26px; }
+  .score-formula > span { font-size: .35rem; }
+  .score-formula strong { font-size: .52rem; }
+  .player-panel { min-height: 0; }
 }

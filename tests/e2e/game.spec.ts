@@ -1,9 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('starts, scores against the bot, and persists the run', async ({ page }) => {
+test('starts a solo market, scores, and persists the run', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Start rival run/i }).click();
-  await expect(page.getByLabel('Round scores')).toBeVisible();
+  await page.getByRole('button', { name: /Start market run/i }).click();
+  await page.getByRole('button', { name: /Next/i }).click();
+  await page.getByRole('button', { name: /Next/i }).click();
+  await page.getByRole('button', { name: /Deal market one/i }).click();
+  await expect(page.getByLabel('Market score and target')).toBeVisible();
   await page.getByRole('button', { name: /^1\./ }).click();
   await page.getByRole('button', { name: /Commit portfolio/i }).click();
   await expect(page.getByText(/You scored/)).toBeVisible({ timeout: 10_000 });
@@ -20,7 +23,10 @@ test('landscape gameplay has no document overflow', async ({ page }) => {
   ]) {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    await page.getByRole('button', { name: /Start rival run/i }).click();
+    await page.getByRole('button', { name: /Start market run/i }).click();
+    await page.getByRole('button', { name: /Next/i }).click();
+    await page.getByRole('button', { name: /Next/i }).click();
+    await page.getByRole('button', { name: /Deal market one/i }).click();
     const dimensions = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
       height: document.documentElement.scrollHeight,
