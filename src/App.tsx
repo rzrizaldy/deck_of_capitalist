@@ -68,6 +68,34 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
+const HAND_RECIPES: Record<string, string[]> = {
+  LIQUIDATION: ['BROWN', 'SKY', 'PINK'],
+  DEVELOPMENT: ['SKY', 'SKY'],
+  JOINT_VENTURE: ['BROWN', 'BROWN', 'PINK', 'PINK'],
+  MONOPOLY: ['BROWN', 'BROWN'],
+  CONGLOMERATE: ['BROWN', 'BROWN', 'PINK', 'PINK'],
+  DIVERSIFIED: ['BROWN', 'SKY', 'PINK', 'ORANGE', 'RED'],
+  TRANSPORT: ['RAILROAD', 'RAILROAD', 'RAILROAD', 'RAILROAD'],
+};
+
+function PortfolioRecipe({ hand }: { hand: keyof typeof HANDS }) {
+  const groups = HAND_RECIPES[hand];
+  const isConglomerate = hand === 'CONGLOMERATE';
+  return (
+    <div className="portfolio-recipe" aria-label={`${HANDS[hand].name} card pattern`}>
+      <div className="recipe-cards">
+        {groups.map((group, index) => {
+          const visual = GROUPS[group as keyof typeof GROUPS];
+          return <span key={`${group}-${index}`} style={{ '--recipe-color': visual.color, '--recipe-ink': visual.ink } as React.CSSProperties}>
+            {hand === 'TRANSPORT' ? '↔' : visual.label.slice(0, 1)}
+          </span>;
+        })}
+      </div>
+      <small>{isConglomerate ? 'complete set + pair' : HANDS[hand].description}</small>
+    </div>
+  );
+}
+
 function Guide({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="The Market Ledger" onClose={onClose}>
@@ -86,7 +114,7 @@ function Guide({ onClose }: { onClose: () => void }) {
           <h3>Portfolio rankings</h3>
           <div className="rank-list">
             {Object.entries(HANDS).map(([key, hand]) => (
-              <div key={key}><span><strong>{hand.name}</strong><small>{hand.description}</small></span><b>×{hand.multiplier}</b></div>
+              <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{hand.name}</strong><small>{hand.description}</small></span><b>×{hand.multiplier}</b></div>
             ))}
           </div>
         </section>
