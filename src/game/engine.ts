@@ -41,7 +41,7 @@ export function chooseMarketModifier(rngState: number): { modifier: MarketModifi
   // Ganjil-Genap alternates its permitted parity from the seeded cursor.
   const modifier = picked.item.id === 'GANJIL_GENAP'
     ? { ...picked.item, parity: picked.state % 2 === 0 ? 'even' as const : 'odd' as const,
-      summary: `Only ${(picked.state % 2 === 0 ? 'even' : 'odd')}-chip deeds score this market.` }
+      summary: `Hanya aset dengan chip ${(picked.state % 2 === 0 ? 'genap' : 'ganjil')} yang bernilai di pasar ini.` }
     : picked.item;
   return { modifier, rngState: picked.state };
 }
@@ -143,7 +143,7 @@ function chipsForMarket(card: Card, modifier?: MarketModifier): number {
 export function scoreHand(cards: Card[], tycoons: Tycoon[], context: ScoreContext = {}): ScoreBreakdown {
   if (cards.length === 0) {
     return {
-      hand: 'LIQUIDATION', handName: 'Empty', cardChips: 0, bonusChips: 0,
+      hand: 'HIGH_ASSET', handName: HANDS.HIGH_ASSET.name, cardChips: 0, bonusChips: 0,
       baseMultiplier: 0, bonusMultiplier: 0, multiplicative: 1, total: 0, notes: [],
     };
   }

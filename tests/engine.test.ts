@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { CARD_TEMPLATES, MARKET_MODIFIERS, TYCOONS } from '../src/game/data';
 import { createStartingDeck, drawToHand, identifyHand, marketTarget, prepareMarket, scoreHand } from '../src/game/engine';
 import type { Card, PlayerState, GroupKey } from '../src/game/types';
@@ -24,8 +26,18 @@ describe('authoritative scoring engine', () => {
   });
 
   it('has ten ranked assets in each of five classes', () => {
-    expect(new Set(CARD_TEMPLATES.map((item) => item.group)).size).toBe(5);
-    expect(CARD_TEMPLATES.filter((item) => item.group === 'TRANSPORT')).toHaveLength(10);
+    const groups = new Set(CARD_TEMPLATES.map((item) => item.group));
+    expect(groups.size).toBe(5);
+    for (const group of groups) {
+      const assets = CARD_TEMPLATES.filter((item) => item.group === group);
+      expect(assets).toHaveLength(10);
+      expect(assets.map((item) => item.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    }
+    expect(new Set(CARD_TEMPLATES.map((item) => item.name)).size).toBe(50);
+    expect(CARD_TEMPLATES.every((item) => Boolean(item.artId))).toBe(true);
+    for (const asset of CARD_TEMPLATES) {
+      expect(existsSync(resolve(process.cwd(), `public/assets/cards/${asset.artId}.webp`))).toBe(true);
+    }
   });
 
   it.each([

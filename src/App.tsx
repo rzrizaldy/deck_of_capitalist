@@ -22,7 +22,7 @@ const tr = (locale: Locale, english: string, indonesian: string) => locale === '
 const localizedGroup = (group: keyof typeof GROUPS, locale: Locale) => tr(locale, ({ RESIDENTIAL: 'Residential', COMMERCIAL: 'Commercial', INDUSTRIAL: 'Industrial', UTILITY: 'Utility', TRANSPORT: 'Transport' } as const)[group], GROUPS[group].label);
 const localizedHand = (hand: ScoreBreakdown['hand'], locale: Locale) => tr(locale, ({ HIGH_ASSET: 'High Asset', PAIR: 'Pair', TWO_PAIRS: 'Two Pairs', THREE_KIND: 'Three of a Kind', STRAIGHT: 'Straight', FLUSH: 'Flush', FULL_HOUSE: 'Full House', FOUR_KIND: 'Four of a Kind', STRAIGHT_FLUSH: 'Straight Flush' } as const)[hand], HANDS[hand].name);
 const localizedModifier = (modifier: GameState['modifier'], locale: Locale) => {
-  const english = ({ BANJIR: ['Flood', 'Regional and Heritage deeds score 0 this market.'], MACET: ['Gridlock', 'Transit deeds score half chips this market.'], MATI_LAMPU: ['Blackout', 'Utility deeds score 0 this market.'], GANJIL_GENAP: ['Odd-Even', `Only ${modifier.parity ?? 'odd'}-chip deeds score this market.`], SIDAK: ['Inspection', 'Tycoon effects are disabled this market.'], MUSIM_KAWIN: ['Mating Season', 'Lifestyle chips double; all other deed chips are −20%.'], REKLAMASI: ['Reclamation', 'Three random deeds are removed for this market only.'] } as const)[modifier.id];
+  const english = ({ BANJIR: ['Flood', 'Residential assets score 0 this market.'], MACET: ['Gridlock', 'Transport assets score half chips this market.'], MATI_LAMPU: ['Blackout', 'Utility assets score 0 this market.'], GANJIL_GENAP: ['Odd-Even', `Only ${modifier.parity ?? 'odd'}-chip assets score this market.`], SIDAK: ['Inspection', 'Tycoon effects are disabled this market.'], MUSIM_KAWIN: ['Mating Season', 'Commercial chips double; all other asset chips are −20%.'], REKLAMASI: ['Reclamation', 'Three random assets are removed for this market only.'] } as const)[modifier.id];
   return locale === 'en' ? { name: english[0], summary: english[1] } : modifier;
 };
 const localizedConsumable = (item: Consumable, locale: Locale) => locale === 'id' ? item : ({
@@ -374,7 +374,7 @@ function ScoringExample() {
         <i>=</i>
         <span className="example-total"><small>{tr(locale, 'score', 'skor')}</small><strong>2,000</strong></span>
       </div>
-      <figcaption>{tr(locale, 'Ranks are 1–10 in every class. Build runs for Straights, classes for Flushes, or matching ranks for pairs and houses.', 'Setiap kelas punya rank 1–10. Susun rank untuk Koridor, kumpulkan kelas untuk Satu Kelas, atau samakan rank untuk Pasangan dan Kawasan Lengkap.')}</figcaption>
+      <figcaption>{tr(locale, 'Ranks are 1–10 in every class. Build runs for Straights, classes for Flushes, or matching ranks for pairs and houses.', 'Setiap kelas punya peringkat 1–10. Susun peringkat untuk Koridor, kumpulkan kelas untuk Satu Kelas, atau samakan peringkat untuk Pasangan dan Kawasan Lengkap.')}</figcaption>
     </figure>
   );
 }
@@ -397,20 +397,20 @@ function Guide({ onClose }: { onClose: () => void }) {
           <dl className="glossary">
             <div><dt>{tr(locale, 'Deed', 'Aset')}</dt><dd>{tr(locale, 'One property card. Its number is its chip value.', 'Satu kartu properti. Angkanya adalah nilai chip.')}</dd></div>
             <div><dt>{tr(locale, 'Group', 'Grup')}</dt><dd>{tr(locale, 'Deeds sharing a colour. Matching groups makes multipliers grow.', 'Aset yang berbagi warna. Menyamakan grup membuat multiplier naik.')}</dd></div>
-            <div><dt>Tycoon</dt><dd>{tr(locale, 'A hired helper that adds chips or multiplier whenever its condition is met.', 'Rekan yang menambah chip atau multiplier saat syaratnya terpenuhi.')}</dd></div>
+            <div><dt>{tr(locale, 'Tycoon', 'Taipan')}</dt><dd>{tr(locale, 'A hired helper that adds chips or multiplier whenever its condition is met.', 'Rekan yang menambah chip atau pengali saat syaratnya terpenuhi.')}</dd></div>
             <div><dt>{tr(locale, 'Renovate', 'Renovasi')}</dt><dd>{tr(locale, 'Pay to give one deed +5 chips, permanently.', 'Bayar untuk memberi satu aset +5 chip secara permanen.')}</dd></div>
             <div><dt>{tr(locale, 'Liquidate', 'Likuidasi')}</dt><dd>{tr(locale, 'Destroy one deed for $1. A smaller deck draws your best cards more often.', 'Hancurkan satu aset demi $1. Dek lebih ramping lebih sering menarik kartu terbaik.')}</dd></div>
           </dl>
         </section>
         <section>
           <h3>{tr(locale, 'Portfolio patterns', 'Pola portofolio')}</h3>
-          <p className="guide-note">{tr(locale, 'Every class holds ranks 1–10. Higher patterns are rarer and multiply much harder; the swatches show the required classes.', 'Setiap kelas memiliki rank 1–10. Pola tinggi lebih langka dan multiplier-nya lebih besar; kotak warna menunjukkan kelas yang diperlukan.')}</p>
+          <p className="guide-note">{tr(locale, 'Every class holds ranks 1–10. Higher patterns are rarer and multiply much harder; the swatches show the required classes.', 'Setiap kelas memiliki peringkat 1–10. Pola tinggi lebih langka dan pengalinya lebih besar; kotak warna menunjukkan kelas yang diperlukan.')}</p>
           <div className="rank-list">
             {Object.entries(HANDS).map(([key, hand]) => (
               <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{localizedHand(key as keyof typeof HANDS, locale)}</strong><small>{locale === 'en' ? ({ HIGH_ASSET: 'No pattern; highest rank leads.', PAIR: 'Two matching ranks.', TWO_PAIRS: 'Two different matching ranks.', THREE_KIND: 'Three matching ranks.', STRAIGHT: 'Five consecutive ranks.', FLUSH: 'Five cards in one class.', FULL_HOUSE: 'Three matching ranks plus a pair.', FOUR_KIND: 'Four matching ranks.', STRAIGHT_FLUSH: 'Five consecutive ranks in one class.' } as Record<string, string>)[key] : hand.description}</small></span><b>×{hand.multiplier}</b></div>
             ))}
           </div>
-          <h3>{tr(locale, 'Keyboard', 'Keyboard')}</h3>
+          <h3>{tr(locale, 'Keyboard', 'Papan tombol')}</h3>
           <p>{tr(locale, '1–8 select cards · Enter commit · D discard · M mute', '1–8 pilih kartu · Enter mainkan · D buang · M senyap')}</p>
         </section>
       </div>
