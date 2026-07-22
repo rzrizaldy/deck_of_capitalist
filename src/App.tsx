@@ -20,7 +20,7 @@ function AssetCard({ card, selected = false, compact = false, onClick, index }: 
   return (
     <button
       className={`asset-card ${selected ? 'selected' : ''} ${compact ? 'compact' : ''}`}
-      style={{ '--group': group.color, '--group-ink': group.ink } as React.CSSProperties}
+      style={{ '--group': group.color, '--group-ink': group.ink, '--card-index': index ?? 0 } as React.CSSProperties}
       onClick={onClick}
       aria-pressed={selected}
       aria-label={`${index !== undefined ? `${index + 1}. ` : ''}${card.name}, ${card.chips + card.bonus} chips`}
