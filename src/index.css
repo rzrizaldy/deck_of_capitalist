@@ -33,6 +33,9 @@ body { overflow: hidden; background: #04070a; }
   background: radial-gradient(ellipse at 50% 50%, #08120f, #020506 70%);
 }
 
+:fullscreen #root { width: 100vw; min-height: 100dvh; background: #04070a; }
+:fullscreen .game-frame { --frame-h: 100dvh; width: 100vw; max-width: none; height: 100dvh; border-radius: 0; box-shadow: none; }
+
 button, select, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
@@ -50,7 +53,10 @@ button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
    * The caps are deliberately above the reference so a desktop canvas grows
    * into the viewport it is given — at 1440x900 the frame is 1440x702 and --u
    * is 1.29, which is what makes the table type legible rather than doll-sized.
-   * Landscape phones are height-bound by 100dvh and are unaffected.
+   * Landscape phones are height-bound by 100dvh and are unaffected. This
+   * deliberately uses an adaptive wide canvas (about 2.05–2.16:1) rather
+   * than a fixed 16:9 crop: it fills modern iPhone and Android landscape
+   * screens without adding large side bars.
    */
   --frame-h: min(100dvh, 54.53vw, 702px);
   --u: calc(var(--frame-h) / 545);

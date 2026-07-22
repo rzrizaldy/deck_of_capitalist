@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   BookOpen, Building2, Coins, Crown, Music, RotateCcw,
-  Eye, Sparkles, Target, Trash2, Trophy, Volume2, VolumeX, Wrench, X,
+  Eye, Maximize2, Minimize2, Sparkles, Target, Trash2, Trophy, Volume2, VolumeX, Wrench, X,
 } from 'lucide-react';
 import {
   getVolume, isBgmEnabled, playSound, pulseHaptic, setBgmEnabled, setVolume,
@@ -116,6 +116,24 @@ function AudioControls({ state, dispatch, compact = false }: { state: GameState;
       </button>
     </div>
   );
+}
+
+function FullscreenButton() {
+  const [active, setActive] = useState(() => typeof document !== 'undefined' && Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const sync = () => setActive(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  const toggle = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    } catch {
+      // Some mobile browsers do not permit page fullscreen; the safe-area canvas remains usable.
+    }
+  };
+  return <button className="icon-button fullscreen-button" onClick={() => void toggle()} aria-pressed={active} aria-label={active ? 'Exit full screen' : 'Full screen'} title={active ? 'Exit full screen' : 'Tap for full screen'}>{active ? <Minimize2 /> : <Maximize2 />}</button>;
 }
 
 type ScoreStage = 'cards' | 'chips' | 'multiplier' | 'total';
@@ -372,9 +390,9 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
         <div className="title-lockup">
           <img src="/assets/title.png" alt="Deck of Capitalist" />
         </div>
-        <p className="eyebrow">Monopoly Citizen Asset</p>
-        <h1>Be a corrupt tycoon.</h1>
-        <p className="menu-copy">Build ruthless portfolios, hire tycoons, and clear eight escalating Jakarta market targets.</p>
+        <p className="eyebrow">Monopoly your archipelago</p>
+        <h1>Dominate 58%.</h1>
+        <p className="menu-copy">Be a ruthless tycoon.</p>
         <div className="high-score"><Trophy /> Best run <strong>{money(highScore)}</strong></div>
       </section>
       <section className="menu-panel">
@@ -431,6 +449,7 @@ function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
         </div>
         <div className="hud-actions">
           <AudioControls state={state} dispatch={dispatch} compact />
+          <FullscreenButton />
           <button className="icon-button" onClick={() => setGuide(true)} aria-label="Open rules"><BookOpen /></button>
           <button className="icon-button" onClick={() => dispatch({ type: 'GO_MENU' })} aria-label="Return to menu"><X /></button>
         </div>

@@ -272,6 +272,7 @@ test('the in-game HUD exposes mute and volume', async ({ page }) => {
   await expect(hud.getByLabel('Volume')).toBeVisible();
   await expect(hud.getByRole('button', { name: /Mute sound|Unmute sound/i })).toBeVisible();
   await expect(hud.getByRole('button', { name: /background music/i })).toBeVisible();
+  await expect(hud.getByRole('button', { name: /Full screen/i })).toBeVisible();
 });
 
 test('a chosen Konco follows the run from briefing to table', async ({ page }) => {
