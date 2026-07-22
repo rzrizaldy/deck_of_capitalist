@@ -4,11 +4,19 @@ A browser-based, pixel-noir property roguelike set above nighttime Jakarta. Buil
 
 ## Play
 
-[Play Deck of Capitalist](https://deck-of-capitalist-dkk8u.ondigitalocean.app)
+**[Play Deck of Capitalist](https://deck-of-capitalist-dkk8u.ondigitalocean.app)** — the live DigitalOcean App Platform URL.
 
-The intended custom domain is [deck-of-capitalist.allrize.ai](https://deck-of-capitalist.allrize.ai). It must be pointed at the DigitalOcean App Platform CNAME after the platform accepts the domain.
+The custom domain `deck-of-capitalist.allrize.ai` is **pending DNS**. It is registered on the app as the primary domain, but the record does not exist yet, so no certificate has been issued and the hostname does not resolve. The zone `allrize.ai` runs on Cloudflare nameservers. To finish it, add in the Cloudflare dashboard for `allrize.ai`:
 
-Desktop and landscape mobile are supported. Portrait mobile displays a rotation prompt while preserving the current run.
+| Type | Name | Target | Proxy |
+| --- | --- | --- | --- |
+| CNAME | `deck-of-capitalist` | `deck-of-capitalist-dkk8u.ondigitalocean.app` | **DNS only (grey cloud)** |
+
+The proxy must stay off — an orange-cloud record terminates TLS at Cloudflare and DigitalOcean's Let's Encrypt validation never completes. Once the record resolves, App Platform advances past `verify-cname` and issues the certificate automatically.
+
+The whole game runs solo: there is no rival, no bot, and no online opponent. Difficulty changes the market target thresholds only.
+
+Gameplay is locked to a landscape canvas. Desktop centres that canvas; landscape mobile fills it. Portrait mobile shows a rotation prompt while preserving the current run.
 
 ## Rules
 
@@ -39,9 +47,19 @@ npm run test:e2e
 
 The project uses React, TypeScript, Vite, Vitest, and Playwright. Saves are versioned in browser local storage. The application has no backend, accounts, analytics, or online leaderboard.
 
+`tests/balance.test.ts` is a headless simulation harness: it plays deterministic greedy-best-hand runs across every difficulty and reports the per-round clear rate, which is how `MARKET_TARGETS` is tuned. Run `npx vitest run tests/balance.test.ts --reporter=verbose` to see the table.
+
+All audio is generated procedurally with the Web Audio API — there are no binary audio assets. Volume, mute, and the ambient music loop are exposed on the title screen and in the in-game HUD, and persist in local storage.
+
 ## Deployment
 
-`.do/app.yaml` defines a DigitalOcean App Platform static site. It builds with `npm ci && npm run build`, publishes `dist`, and falls back to `index.html` for client-side navigation.
+`.do/app.yaml` defines a DigitalOcean App Platform static site. It builds with `npm ci && npm run build`, publishes `dist`, and falls back to `index.html` for client-side navigation. App Platform is the only deployment target for this project.
+
+The app source is a plain git clone URL rather than a GitHub App integration, so pushing to `main` does not auto-deploy. Trigger a release explicitly:
+
+```bash
+doctl apps create-deployment 05e14d75-9c66-4ff9-a0ad-cc4da677b465 --wait
+```
 
 ## Artwork
 

@@ -1,29 +1,212 @@
-export type SoundName = 'draw' | 'select' | 'discard' | 'play' | 'chips' | 'multiplier' | 'score' | 'purchase' | 'victory' | 'defeat';
+export type SoundName =
+  | 'draw' | 'select' | 'deselect' | 'discard' | 'shuffle' | 'play'
+  | 'chips' | 'multiplier' | 'score' | 'purchase' | 'victory' | 'defeat';
 
-const NOTES: Record<SoundName, number[]> = {
-  draw: [300, 420], select: [520], discard: [250, 180], play: [340], chips: [390, 470], multiplier: [560, 690], score: [440, 660, 880],
-  purchase: [520, 780], victory: [440, 554, 660, 880], defeat: [330, 277, 220],
-};
+export const VOLUME_KEY = 'doc-volume';
+export const MUTED_KEY = 'doc-muted';
+export const BGM_KEY = 'doc-bgm';
 
-export function playSound(name: SoundName, muted: boolean): void {
-  if (muted || typeof AudioContext === 'undefined') return;
-  const context = new AudioContext();
-  const now = context.currentTime;
-  NOTES[name].forEach((frequency, index) => {
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = name === 'defeat' ? 'sawtooth' : name === 'discard' ? 'square' : 'triangle';
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.0001, now + index * 0.075);
-    gain.gain.exponentialRampToValueAtTime(0.055, now + index * 0.075 + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.075 + 0.12);
-    oscillator.connect(gain).connect(context.destination);
-    oscillator.start(now + index * 0.075);
-    oscillator.stop(now + index * 0.075 + 0.13);
-  });
-  window.setTimeout(() => void context.close(), 800);
+interface Voice {
+  notes: number[];
+  wave: OscillatorType;
+  /** Seconds between successive notes. */
+  step: number;
+  /** Seconds each note rings for. */
+  hold: number;
+  gain: number;
 }
 
+const VOICES: Record<SoundName, Voice> = {
+  draw: { notes: [300, 420], wave: 'triangle', step: 0.06, hold: 0.12, gain: 0.05 },
+  select: { notes: [520], wave: 'triangle', step: 0.07, hold: 0.1, gain: 0.05 },
+  deselect: { notes: [400], wave: 'triangle', step: 0.07, hold: 0.08, gain: 0.035 },
+  discard: { notes: [250, 180], wave: 'square', step: 0.06, hold: 0.11, gain: 0.045 },
+  shuffle: { notes: [220, 300, 260, 340], wave: 'triangle', step: 0.045, hold: 0.07, gain: 0.04 },
+  play: { notes: [340], wave: 'triangle', step: 0.07, hold: 0.13, gain: 0.055 },
+  chips: { notes: [390, 470], wave: 'triangle', step: 0.07, hold: 0.12, gain: 0.055 },
+  multiplier: { notes: [560, 690], wave: 'triangle', step: 0.07, hold: 0.12, gain: 0.055 },
+  score: { notes: [440, 660, 880], wave: 'triangle', step: 0.075, hold: 0.14, gain: 0.06 },
+  purchase: { notes: [520, 780], wave: 'triangle', step: 0.07, hold: 0.13, gain: 0.055 },
+  victory: { notes: [440, 554, 660, 880], wave: 'triangle', step: 0.1, hold: 0.24, gain: 0.06 },
+  defeat: { notes: [330, 277, 220], wave: 'sawtooth', step: 0.13, hold: 0.28, gain: 0.055 },
+};
+
+/** A slow minor vamp played as a soft pad, one chord per bar. */
+const BGM_BASS = [110, 110, 146.83, 130.81];
+const BGM_PAD = [329.63, 329.63, 392, 349.23];
+const BGM_BEAT = 1.9;
+
+function readNumber(key: string, fallback: number): number {
+  if (typeof localStorage === 'undefined') return fallback;
+  const stored = localStorage.getItem(key);
+  if (stored === null) return fallback;
+  const raw = Number(stored);
+  return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : fallback;
+}
+
+function readFlag(key: string, fallback: boolean): boolean {
+  if (typeof localStorage === 'undefined') return fallback;
+  const raw = localStorage.getItem(key);
+  return raw === null ? fallback : raw === 'true';
+}
+
+let volume = readNumber(VOLUME_KEY, 0.7);
+let bgmEnabled = readFlag(BGM_KEY, true);
+
+/* ---------------------------------------------------------------- context */
+
+let context: AudioContext | null = null;
+let master: GainNode | null = null;
+let unlocked = false;
+
+function ensureContext(): AudioContext | null {
+  if (typeof AudioContext === 'undefined') return null;
+  if (!context) {
+    context = new AudioContext();
+    master = context.createGain();
+    master.gain.value = volume;
+    master.connect(context.destination);
+  }
+  return context;
+}
+
+/**
+ * Browsers refuse to start an AudioContext outside a user gesture. Call this
+ * from any click/keydown handler; it is cheap and idempotent.
+ */
+export function unlockAudio(): void {
+  const ctx = ensureContext();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+  unlocked = true;
+}
+
+export function isAudioUnlocked(): boolean {
+  return unlocked;
+}
+
+/* -------------------------------------------------------------- settings */
+
+export function getVolume(): number {
+  return volume;
+}
+
+export function setVolume(next: number): number {
+  volume = Math.min(1, Math.max(0, Number.isFinite(next) ? next : 0));
+  if (typeof localStorage !== 'undefined') localStorage.setItem(VOLUME_KEY, String(volume));
+  if (master) master.gain.value = volume;
+  if (volume <= 0) stopBgm();
+  return volume;
+}
+
+export function isBgmEnabled(): boolean {
+  return bgmEnabled;
+}
+
+export function setBgmEnabled(next: boolean): boolean {
+  bgmEnabled = next;
+  if (typeof localStorage !== 'undefined') localStorage.setItem(BGM_KEY, String(next));
+  if (!next) stopBgm();
+  return bgmEnabled;
+}
+
+/* ----------------------------------------------------------------- sounds */
+
+export function playSound(name: SoundName, muted: boolean): void {
+  if (muted || volume <= 0) return;
+  const ctx = ensureContext();
+  if (!ctx || ctx.state !== 'running' || !master) return;
+  const bus = master;
+  const voice = VOICES[name];
+  const now = ctx.currentTime;
+  voice.notes.forEach((frequency, index) => {
+    const at = now + index * voice.step;
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = voice.wave;
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(voice.gain, at + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + voice.hold);
+    oscillator.connect(gain).connect(bus);
+    oscillator.start(at);
+    oscillator.stop(at + voice.hold + 0.02);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  });
+}
+
+/* -------------------------------------------------------------------- bgm */
+
+let bgmGain: GainNode | null = null;
+let bgmTimer: number | null = null;
+let bgmStep = 0;
+
+function scheduleBgmBar(): void {
+  const ctx = context;
+  const bus = bgmGain;
+  if (!ctx || !bus) return;
+  const now = ctx.currentTime;
+  const parts = [
+    { frequency: BGM_BASS[bgmStep % BGM_BASS.length], wave: 'sine' as OscillatorType, level: 0.5 },
+    { frequency: BGM_PAD[bgmStep % BGM_PAD.length], wave: 'triangle' as OscillatorType, level: 0.2 },
+  ];
+  bgmStep += 1;
+  parts.forEach((part) => {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = part.wave;
+    oscillator.frequency.value = part.frequency;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(part.level, now + 0.6);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + BGM_BEAT);
+    oscillator.connect(gain).connect(bus);
+    oscillator.start(now);
+    oscillator.stop(now + BGM_BEAT + 0.05);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  });
+}
+
+/** Starts the ambient loop. No-op until audio has been unlocked by a gesture. */
+export function startBgm(muted: boolean): void {
+  if (muted || !bgmEnabled || volume <= 0 || bgmTimer !== null) return;
+  const ctx = ensureContext();
+  if (!ctx || ctx.state !== 'running' || !master) return;
+  bgmGain = ctx.createGain();
+  bgmGain.gain.value = 0.055;
+  bgmGain.connect(master);
+  bgmStep = 0;
+  scheduleBgmBar();
+  bgmTimer = window.setInterval(scheduleBgmBar, BGM_BEAT * 1000);
+}
+
+export function stopBgm(): void {
+  if (bgmTimer !== null) { window.clearInterval(bgmTimer); bgmTimer = null; }
+  const node = bgmGain;
+  bgmGain = null;
+  if (!node) return;
+  if (context) node.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.4);
+  window.setTimeout(() => node.disconnect(), 600);
+}
+
+export function isBgmPlaying(): boolean {
+  return bgmTimer !== null;
+}
+
+/* ---------------------------------------------------------------- haptics */
+
+let reducedMotion: MediaQueryList | null = null;
+
+export function prefersReducedMotion(): boolean {
+  if (typeof matchMedia === 'undefined') return false;
+  if (!reducedMotion) reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  return reducedMotion.matches;
+}
+
+/**
+ * Haptics are motion, so honour prefers-reduced-motion. Audio keeps its own
+ * mute/volume control and is deliberately not gated on it.
+ */
 export function pulseHaptic(pattern: number | number[]): void {
+  if (prefersReducedMotion()) return;
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(pattern);
 }

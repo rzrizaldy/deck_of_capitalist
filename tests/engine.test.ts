@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CARD_TEMPLATES, TYCOONS } from '../src/game/data';
 import { createStartingDeck, drawToHand, identifyHand, marketTarget, scoreHand } from '../src/game/engine';
-import type { Card, CompetitorState, GroupKey } from '../src/game/types';
+import type { Card, PlayerState, GroupKey } from '../src/game/types';
 
 let id = 0;
 const card = (group: GroupKey, templateId = `${group.toLowerCase()}-${id}`): Card => ({
@@ -58,13 +58,24 @@ describe('authoritative scoring engine', () => {
     expect(solo.multiplicative).toBe(2);
   });
 
-  it('reshuffles the discard pile when the draw pile is empty', () => {
-    const side: CompetitorState = {
+  it('reshuffles the discard pile when the draw pile is empty and reports it', () => {
+    const side: PlayerState = {
       hand: [], drawPile: [], discardPile: [card('BROWN'), card('SKY')],
       score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3,
     };
     const result = drawToHand(side, 42, 2);
     expect(result.side.hand).toHaveLength(2);
     expect(result.side.discardPile).toHaveLength(0);
+    expect(result.reshuffled).toBe(true);
+  });
+
+  it('does not report a reshuffle when the draw pile covers the deal', () => {
+    const side: PlayerState = {
+      hand: [], drawPile: [card('BROWN'), card('SKY'), card('RED')], discardPile: [card('BLUE')],
+      score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3,
+    };
+    const result = drawToHand(side, 42, 2);
+    expect(result.reshuffled).toBe(false);
+    expect(result.side.discardPile).toHaveLength(1);
   });
 });

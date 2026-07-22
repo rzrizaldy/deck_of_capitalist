@@ -1,16 +1,23 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
-  BookOpen, Building2, Coins, Crown, RotateCcw,
-  Eye, Sparkles, Train, Trash2, Trophy, Volume2, VolumeX, Wrench, X, Zap,
+  BookOpen, Building2, Coins, Crown, Music, RotateCcw,
+  Eye, Sparkles, Target, Train, Trash2, Trophy, Volume2, VolumeX, Wrench, X, Zap,
 } from 'lucide-react';
-import { playSound, pulseHaptic } from './game/audio';
+import {
+  getVolume, isBgmEnabled, playSound, pulseHaptic, setBgmEnabled, setVolume,
+  startBgm, stopBgm, unlockAudio,
+} from './game/audio';
 import { CARD_TEMPLATES, GROUPS, HANDS } from './game/data';
 import { allCards, deckSize, MARKET_DIFFICULTY, marketTarget, priceFor, scoreHand } from './game/engine';
 import { clearSave, loadSave, migrateLegacySave, recordHighScore, saveGame } from './game/persistence';
 import { gameReducer, initialState } from './game/reducer';
 import type { Card, Difficulty, GameState, ScoreBreakdown, Tycoon } from './game/types';
 
+type Dispatch = React.Dispatch<Parameters<typeof gameReducer>[1]>;
+
 const money = (value: number) => value.toLocaleString('en-US');
+const clearedPercent = (score: number, target: number) =>
+  Math.max(0, Math.min(100, Math.round((score / Math.max(1, target)) * 100)));
 
 function AnimatedNumber({ value, active = false, duration = 460 }: { value: number; active?: boolean; duration?: number }) {
   const [shown, setShown] = useState(value);
@@ -26,6 +33,74 @@ function AnimatedNumber({ value, active = false, duration = 460 }: { value: numb
     return () => cancelAnimationFrame(frame);
   }, [value, duration]);
   return <span className={active ? 'number-pop' : ''}>{money(shown)}</span>;
+}
+
+/** Shared horizontal fill used by the HUD and the table medallion. */
+function ProgressRail({ score, target, tone = 'hud' }: { score: number; target: number; tone?: 'hud' | 'table' }) {
+  const percent = clearedPercent(score, target);
+  return (
+    <div
+      className={`progress-rail ${tone} ${percent >= 100 ? 'cleared' : ''}`}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      aria-label={`Market target ${percent}% cleared`}
+    >
+      <i style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
+function AudioControls({ state, dispatch, compact = false }: { state: GameState; dispatch: Dispatch; compact?: boolean }) {
+  const [volume, setLevel] = useState(() => getVolume());
+  const [bgm, setBgm] = useState(() => isBgmEnabled());
+  const toggleMute = () => {
+    unlockAudio();
+    dispatch({ type: 'SET_MUTED', muted: !state.muted });
+  };
+  const changeVolume = (next: number) => {
+    unlockAudio();
+    setLevel(setVolume(next));
+    if (!state.muted && next > 0) playSound('select', false);
+  };
+  const toggleBgm = () => {
+    unlockAudio();
+    const next = setBgmEnabled(!bgm);
+    setBgm(next);
+    if (next && !state.muted) startBgm(false); else stopBgm();
+  };
+  return (
+    <div className={`audio-controls ${compact ? 'compact' : ''}`}>
+      <button
+        className={compact ? 'icon-button' : ''}
+        onClick={toggleMute}
+        aria-pressed={state.muted}
+        aria-label={state.muted ? 'Unmute sound' : 'Mute sound'}
+      >
+        {state.muted ? <VolumeX /> : <Volume2 />}{!compact && <span>Sound</span>}
+      </button>
+      <input
+        className="volume-slider"
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={Math.round(volume * 100)}
+        onChange={(event) => changeVolume(Number(event.target.value) / 100)}
+        aria-label="Volume"
+        title={`Volume ${Math.round(volume * 100)}%`}
+      />
+      <button
+        className={`${compact ? 'icon-button' : ''} ${bgm ? '' : 'off'}`}
+        onClick={toggleBgm}
+        aria-pressed={bgm}
+        aria-label={bgm ? 'Turn background music off' : 'Turn background music on'}
+      >
+        <Music />{!compact && <span>Music</span>}
+      </button>
+    </div>
+  );
 }
 
 type ScoreStage = 'cards' | 'chips' | 'multiplier' | 'total';
@@ -62,7 +137,8 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
         onClick?.();
       }}
       aria-pressed={selected}
-      aria-label={`${index !== undefined ? `${index + 1}. ` : ''}${card.name}, ${card.chips + card.bonus} chips`}
+      /* The ordinal is the 1-8 keyboard shortcut, so only selectable hand cards get one. */
+      aria-label={`${onClick && index !== undefined ? `${index + 1}. ` : ''}${card.name}, ${card.chips + card.bonus} chips`}
       type="button"
     >
       <img className="card-art" src={`/assets/cards/${card.id}.webp`} alt={onInspect ? `Inspect ${card.name} artwork` : ''} loading="lazy" />
@@ -109,7 +185,9 @@ function TycoonPreview({ tycoon, onClose }: { tycoon: Tycoon; onClose: () => voi
   </div>;
 }
 
-function TycoonCard({ tycoon, compact = false, children, onInspect }: { tycoon: Tycoon; compact?: boolean; children?: React.ReactNode; onInspect?: () => void }) {
+function TycoonCard({ tycoon, compact = false, bought = false, children, onInspect }: {
+  tycoon: Tycoon; compact?: boolean; bought?: boolean; children?: React.ReactNode; onInspect?: () => void;
+}) {
   const content = <>
     <img src={`/assets/tycoons/${tycoon.id}.webp`} alt={`${tycoon.name} tycoon helper`} loading="lazy" />
     <div className="tycoon-card-copy">
@@ -120,7 +198,7 @@ function TycoonCard({ tycoon, compact = false, children, onInspect }: { tycoon: 
     </div>
   </>;
   if (compact && onInspect) return <button className="tycoon-card compact tycoon-inspect" onClick={onInspect} aria-label={`Inspect ${tycoon.name} Tycoon card`} type="button">{content}</button>;
-  return <article className={`tycoon-card ${compact ? 'compact' : ''}`}>{content}</article>;
+  return <article className={`tycoon-card ${compact ? 'compact' : ''} ${bought ? 'bought' : ''}`}>{content}</article>;
 }
 
 function ScoreFormula({ score, label }: { score: ScoreBreakdown | null; label: string }) {
@@ -192,6 +270,13 @@ function Guide({ onClose }: { onClose: () => void }) {
             <li>Tycoons recruited at the Night Market sit on the table and enhance every portfolio they affect.</li>
             <li>Clear eight escalating markets, then take the city.</li>
           </ol>
+          <h3>Words you will see</h3>
+          <dl className="glossary">
+            <div><dt>Chips</dt><dd>The raw value of the deeds you selected.</dd></div>
+            <div><dt>Mult</dt><dd>The portfolio pattern bonus that chips are multiplied by.</dd></div>
+            <div><dt>Deed</dt><dd>One property card in your deck.</dd></div>
+            <div><dt>Blind</dt><dd>One market round: four hands against one target.</dd></div>
+          </dl>
         </section>
         <section>
           <h3>Portfolio rankings</h3>
@@ -227,22 +312,24 @@ function Compendium({ onClose }: { onClose: () => void }) {
 }
 
 function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
-  state: GameState; saved: GameState | null; highScore: number; legacyCleared: boolean;
-  dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]>;
+  state: GameState; saved: GameState | null; highScore: number; legacyCleared: boolean; dispatch: Dispatch;
 }) {
   const [difficulty, setDifficulty] = useState<Difficulty>('trader');
   const [guide, setGuide] = useState(false);
   const [compendium, setCompendium] = useState(false);
   return (
-    <main className="menu-screen">
+    <main className="menu-screen game-frame">
       <div className="menu-shade" />
-      <section className="menu-panel">
+      <section className="menu-brand">
         <div className="title-lockup">
           <img src="/assets/title.png" alt="Deck of Capitalist" />
         </div>
         <p className="eyebrow">Monopoly Citizen Asset</p>
         <h1>Be a corrupt tycoon.</h1>
         <p className="menu-copy">Build ruthless portfolios, hire tycoons, and clear eight escalating Jakarta market targets.</p>
+        <div className="high-score"><Trophy /> Best run <strong>{money(highScore)}</strong></div>
+      </section>
+      <section className="menu-panel">
         {legacyCleared && <p className="notice">The incompatible prototype save was retired. Your legacy high score remains.</p>}
         <fieldset className="difficulty-picker">
           <legend>Market difficulty · changes target scores only</legend>
@@ -257,11 +344,10 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
           {saved && <button className="secondary large" onClick={() => dispatch({ type: 'LOAD', state: saved })}>Continue round {saved.round}</button>}
         </div>
         <div className="menu-subactions">
-          <button onClick={() => setGuide(true)}><BookOpen /> How to play</button>
-          <button onClick={() => setCompendium(true)}><Building2 /> Cards</button>
-          <button onClick={() => dispatch({ type: 'SET_MUTED', muted: !state.muted })}>{state.muted ? <VolumeX /> : <Volume2 />} Sound</button>
+          <button onClick={() => setGuide(true)}><BookOpen /> <span>How to play</span></button>
+          <button onClick={() => setCompendium(true)}><Building2 /> <span>Cards</span></button>
+          <AudioControls state={state} dispatch={dispatch} />
         </div>
-        <div className="high-score"><Trophy /> Best run <strong>{money(highScore)}</strong></div>
       </section>
       {guide && <Guide onClose={() => setGuide(false)} />}
       {compendium && <Compendium onClose={() => setCompendium(false)} />}
@@ -269,20 +355,26 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
   );
 }
 
-function Hud({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]> }) {
+function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const [guide, setGuide] = useState(false);
+  const target = marketTarget(state.round, state.difficulty);
   return (
     <>
       <header className="game-hud">
         <div className="round-mark"><span>Market round</span><strong>{state.round}<small>/8</small></strong></div>
-        <div className="duel-score" aria-label="Market score and target">
-          <div><span>You</span><strong><AnimatedNumber value={state.player.score} active /></strong></div>
-          <b>→</b>
-          <div><span>Target</span><strong>{money(marketTarget(state.round, state.difficulty))}</strong></div>
+        <div className="market-progress" aria-label="Market progress">
+          <div className="progress-figures">
+            <span>Portfolio</span>
+            <strong><AnimatedNumber value={state.player.score} active /></strong>
+            <em>of</em>
+            <span>Target</span>
+            <b>{money(target)}</b>
+          </div>
+          <ProgressRail score={state.player.score} target={target} />
         </div>
         <div className="hud-actions">
+          <AudioControls state={state} dispatch={dispatch} compact />
           <button className="icon-button" onClick={() => setGuide(true)} aria-label="Open rules"><BookOpen /></button>
-          <button className="icon-button" onClick={() => dispatch({ type: 'SET_MUTED', muted: !state.muted })} aria-label={state.muted ? 'Unmute' : 'Mute'}>{state.muted ? <VolumeX /> : <Volume2 />}</button>
           <button className="icon-button" onClick={() => dispatch({ type: 'GO_MENU' })} aria-label="Return to menu"><X /></button>
         </div>
       </header>
@@ -291,37 +383,46 @@ function Hud({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<P
   );
 }
 
-function Intro({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]> }) {
-  const [page, setPage] = useState(0);
-  const pages = [
-    ['Beat the market', `${MARKET_DIFFICULTY[state.difficulty].label} difficulty sets the targets. Market 1 needs ${money(marketTarget(1, state.difficulty))}; clear it with four scoring hands.`],
-    ['Build a portfolio', 'Select one to five deeds. The preview explains chips × multiplier before you commit. Pairs and complete groups scale fast.'],
-    ['Control the deck', 'Discard up to three times to redraw. Cleared markets pay cash and open the Night Market for tycoons, renovations, and acquisitions.'],
-  ];
-  return <main className="intro-screen">
+function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
+  const target = money(marketTarget(1, state.difficulty));
+  return <main className="intro-screen game-frame">
     <div className="intro-panel">
-      <span className="eyebrow">Market briefing · {page + 1}/3</span>
-      <h1>{pages[page][0]}</h1><p>{pages[page][1]}</p>
-      <div className="intro-progress">{pages.map((_, index) => <i key={index} className={index <= page ? 'active' : ''} />)}</div>
+      <span className="eyebrow">Market briefing · {MARKET_DIFFICULTY[state.difficulty].label}</span>
+      <h1>Reach {target} in four hands.</h1>
+      <ul className="intro-points">
+        <li><Building2 aria-hidden="true" /><span>Select <b>one to five deeds</b>. Pairs and complete groups multiply fast.</span></li>
+        <li><RotateCcw aria-hidden="true" /><span><b>Three discards</b> per market redraw the cards you do not want.</span></li>
+        <li><Crown aria-hidden="true" /><span>Clearing a market pays cash and opens the <b>Night Market</b> for Tycoons.</span></li>
+      </ul>
       <div className="intro-actions">
-        {page > 0 && <button className="secondary" onClick={() => setPage(page - 1)}>Back</button>}
-        {page < pages.length - 1 ? <button className="primary" onClick={() => setPage(page + 1)}>Next</button> : <button className="primary" onClick={() => dispatch({ type: 'BEGIN_RUN' })}><Sparkles /> Deal market one</button>}
+        <button className="primary large" onClick={() => dispatch({ type: 'BEGIN_RUN' })}><Sparkles /> Deal market one</button>
       </div>
     </div>
   </main>;
 }
 
-function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]> }) {
+function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const [busy, setBusy] = useState(false);
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [inspectedTycoon, setInspectedTycoon] = useState<Tycoon | null>(null);
   const [sequence, setSequence] = useState<ScoreSequence | null>(null);
   const [discardingIds, setDiscardingIds] = useState<string[]>([]);
+  const [reshuffling, setReshuffling] = useState(false);
   const selected = state.player.hand.filter((card) => state.selectedIds.includes(card.instanceId));
   const prediction = useMemo(() => selected.length ? scoreHand(selected, state.player.tycoons) : null, [selected, state.player.tycoons]);
-  const toggle = (cardId: string) => { dispatch({ type: 'TOGGLE_CARD', cardId }); playSound('select', state.muted); pulseHaptic(5); };
+  const target = marketTarget(state.round, state.difficulty);
+  const remaining = Math.max(0, target - state.player.score);
+
+  const toggle = (cardId: string) => {
+    unlockAudio();
+    const removing = state.selectedIds.includes(cardId);
+    dispatch({ type: 'TOGGLE_CARD', cardId });
+    playSound(removing ? 'deselect' : 'select', state.muted);
+    pulseHaptic(5);
+  };
   const play = () => {
     if (!selected.length || !prediction || busy) return;
+    unlockAudio();
     setBusy(true);
     const id = Date.now();
     setSequence({ cards: selected, score: prediction, stage: 'cards', id });
@@ -333,6 +434,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
   };
   const discard = () => {
     if (!selected.length || busy) return;
+    unlockAudio();
     setBusy(true);
     setDiscardingIds(selected.map((card) => card.instanceId));
     playSound('discard', state.muted);
@@ -340,6 +442,18 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
     window.setTimeout(() => dispatch({ type: 'PLAYER_DISCARD' }), 310);
     window.setTimeout(() => { setDiscardingIds([]); setBusy(false); }, 520);
   };
+
+  // Recycling the discard pile is a real deck event, so it gets its own cue.
+  const reshuffles = state.reshuffles;
+  const seenReshuffles = useRef(reshuffles);
+  useEffect(() => {
+    if (reshuffles === seenReshuffles.current) return;
+    seenReshuffles.current = reshuffles;
+    playSound('shuffle', state.muted);
+    setReshuffling(true);
+    const timer = window.setTimeout(() => setReshuffling(false), 640);
+    return () => window.clearTimeout(timer);
+  }, [reshuffles, state.muted]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -355,7 +469,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
   });
 
   return (
-    <main className="game-screen landscape-locked">
+    <main className="game-screen game-frame">
       <Hud state={state} dispatch={dispatch} />
       <section className="table-layout">
         <section className="play-zone">
@@ -363,7 +477,12 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
           <div className="round-track" aria-label={`Hand ${5 - state.player.handsLeft} of 4`}>
             {Array.from({ length: 4 }, (_, index) => <span key={index} className={index >= state.player.handsLeft ? 'done' : ''} />)}
           </div>
-          <div className="market-target"><span>{MARKET_DIFFICULTY[state.difficulty].label} target</span><strong>{money(marketTarget(state.round, state.difficulty))}</strong><small>{money(Math.max(0, marketTarget(state.round, state.difficulty) - state.player.score))} to clear</small></div>
+          <div className="market-target">
+            <span><Target aria-hidden="true" /> {MARKET_DIFFICULTY[state.difficulty].label} target</span>
+            <strong>{money(target)}</strong>
+            <ProgressRail score={state.player.score} target={target} tone="table" />
+            <small>{remaining ? `${money(remaining)} to clear` : 'Target cleared'}</small>
+          </div>
           <section className="tycoon-shelf" aria-label="Your Tycoon helpers">
             <header><Crown aria-hidden="true" /><span>Inner circle</span><b>{state.player.tycoons.length}/5</b></header>
             <div className="tycoon-lineup">
@@ -393,7 +512,10 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
           <div className="player-resource"><span>Hands</span><strong>{state.player.handsLeft}</strong></div>
           <div className="player-resource"><span>Discards</span><strong>{state.player.discardsLeft}</strong></div>
           <div className="player-resource gold"><span>Capital</span><strong>${state.player.cash}</strong></div>
-          <div className="deck-count"><span>Deck</span><b>{deckSize(state.player)}</b></div>
+          <div className={`deck-count ${reshuffling ? 'reshuffling' : ''}`}>
+            <span>Deck</span><b>{deckSize(state.player)}</b>
+            {reshuffling && <em aria-hidden="true">reshuffled</em>}
+          </div>
         </aside>
       </section>
 
@@ -412,53 +534,90 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
   );
 }
 
-function Shop({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]> }) {
+function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const [cardId, setCardId] = useState(allCards(state.player)[0]?.instanceId ?? '');
+  const [flash, setFlash] = useState<string | null>(null);
+  const [spend, setSpend] = useState<{ amount: number; id: number } | null>(null);
   const shop = state.shop!;
   const deck = allCards(state.player).sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
   const acquirePrice = priceFor(state.player, 4 + Math.floor(shop.acquisition.chips / 15));
-  const buy = (action: Parameters<typeof gameReducer>[1]) => { dispatch(action); playSound('purchase', state.muted); };
+
+  const buy = useCallback((action: Parameters<typeof gameReducer>[1], key: string, cost: number) => {
+    unlockAudio();
+    dispatch(action);
+    playSound('purchase', state.muted);
+    pulseHaptic(8);
+    setFlash(key);
+    setSpend({ amount: cost, id: Date.now() });
+    window.setTimeout(() => setFlash((current) => (current === key ? null : current)), 520);
+  }, [dispatch, state.muted]);
+
+  useEffect(() => {
+    if (!spend) return;
+    const timer = window.setTimeout(() => setSpend(null), 900);
+    return () => window.clearTimeout(timer);
+  }, [spend]);
+
   return (
-    <main className="shop-screen">
+    <main className="shop-screen game-frame">
       <Hud state={state} dispatch={dispatch} />
       <div className="shop-wrap">
-        <header className="shop-heading"><div><span>Round {state.round} secured</span><h1>The Night Market</h1><p>Turn the last win into a stronger deck.</p></div><div className="cash-pile"><Coins /> ${state.player.cash}</div></header>
+        <header className="shop-heading">
+          <div><span>Round {state.round} secured</span><h1>The Night Market</h1><p>Turn the last win into a stronger deck.</p></div>
+          <div className={`cash-pile ${spend ? 'spending' : ''}`}>
+            <Coins /> ${state.player.cash}
+            {spend && <b key={spend.id} className="spend-chip" aria-hidden="true">-${spend.amount}</b>}
+          </div>
+        </header>
         <section>
           <h2><Crown /> Tycoon contracts <small>{state.player.tycoons.length}/5 hired</small></h2>
           <div className="shop-grid">
             {shop.tycoons.map((tycoon) => {
               const price = priceFor(state.player, tycoon.cost);
               const owned = state.player.tycoons.some((item) => item.id === tycoon.id);
-              return <TycoonCard key={tycoon.id} tycoon={tycoon}><button disabled={owned || state.player.cash < price || state.player.tycoons.length >= 5} onClick={() => buy({ type: 'BUY_TYCOON', tycoonId: tycoon.id })}>{owned ? 'Hired' : `Hire · $${price}`}</button></TycoonCard>;
+              return <TycoonCard key={tycoon.id} tycoon={tycoon} bought={flash === tycoon.id}>
+                <button
+                  disabled={owned || state.player.cash < price || state.player.tycoons.length >= 5}
+                  onClick={() => buy({ type: 'BUY_TYCOON', tycoonId: tycoon.id }, tycoon.id, price)}
+                >{owned ? 'Hired' : `Hire · $${price}`}</button>
+              </TycoonCard>;
             })}
           </div>
         </section>
         <section>
           <h2><Building2 /> Deed desk</h2>
           <div className="deed-market">
-            <article className="acquisition"><AssetCard card={{ ...shop.acquisition, instanceId: 'offer', bonus: 0 }} compact /><div><h3>Acquire deed</h3><p>Add this card permanently to your discard pile.</p><button disabled={state.player.cash < acquirePrice} onClick={() => buy({ type: 'BUY_ACQUISITION' })}>Acquire · ${acquirePrice}</button></div></article>
-            <article className="deck-service">
+            <article className={`acquisition ${flash === 'acquire' ? 'bought' : ''}`}>
+              <AssetCard card={{ ...shop.acquisition, instanceId: 'offer', bonus: 0 }} compact />
+              <div>
+                <h3>Acquire deed</h3>
+                <p>Add this card permanently to your discard pile.</p>
+                <button disabled={state.player.cash < acquirePrice} onClick={() => buy({ type: 'BUY_ACQUISITION' }, 'acquire', acquirePrice)}>Acquire · ${acquirePrice}</button>
+              </div>
+            </article>
+            <article className={`deck-service ${flash === 'service' ? 'bought' : ''}`}>
               <select aria-label="Choose a deed" value={cardId} onChange={(event) => setCardId(event.target.value)}>
                 {deck.map((card) => <option value={card.instanceId} key={card.instanceId}>{GROUPS[card.group].label} · {card.name} · {card.chips + card.bonus}</option>)}
               </select>
-              <button disabled={shop.renovated || state.player.cash < priceFor(state.player, 4)} onClick={() => buy({ type: 'RENOVATE', cardId })}><Wrench /> {shop.renovated ? 'Renovated' : `Renovate +5 · $${priceFor(state.player, 4)}`}</button>
-              <button disabled={shop.liquidated || deckSize(state.player) <= 32} onClick={() => buy({ type: 'LIQUIDATE', cardId })}><Trash2 /> {shop.liquidated ? 'Liquidated' : 'Liquidate · +$1'}</button>
+              <button disabled={shop.renovated || state.player.cash < priceFor(state.player, 4)} onClick={() => buy({ type: 'RENOVATE', cardId }, 'service', priceFor(state.player, 4))}><Wrench /> {shop.renovated ? 'Renovated' : `Renovate +5 · $${priceFor(state.player, 4)}`}</button>
+              <button disabled={shop.liquidated || deckSize(state.player) <= 32} onClick={() => buy({ type: 'LIQUIDATE', cardId }, 'service', 0)}><Trash2 /> {shop.liquidated ? 'Liquidated' : 'Liquidate · +$1'}</button>
             </article>
           </div>
         </section>
-        <footer className="shop-footer">
-          <button className="secondary" disabled={state.player.cash < shop.rerollCost} onClick={() => buy({ type: 'REROLL_SHOP' })}><RotateCcw /> Reroll · ${shop.rerollCost}</button>
-          <button className="primary" onClick={() => { dispatch({ type: 'NEXT_ROUND' }); playSound('draw', state.muted); }}>Enter round {state.round + 1}</button>
-        </footer>
       </div>
+      {/* Pinned outside the scroll region so the exit is never below the fold. */}
+      <footer className="shop-footer">
+        <button className="secondary" disabled={state.player.cash < shop.rerollCost} onClick={() => buy({ type: 'REROLL_SHOP' }, 'reroll', shop.rerollCost)}><RotateCcw /> Reroll · ${shop.rerollCost}</button>
+        <button className="primary" onClick={() => { unlockAudio(); dispatch({ type: 'NEXT_ROUND' }); playSound('draw', state.muted); }}>Enter round {state.round + 1}</button>
+      </footer>
     </main>
   );
 }
 
-function Ending({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]> }) {
+function Ending({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const won = state.phase === 'victory';
   return (
-    <main className={`ending ${won ? 'won' : 'lost'}`} style={{ backgroundImage: `url(/assets/generated/${won ? 'victory-jakarta.webp' : 'bankruptcy-jakarta.webp'})` }}>
+    <main className={`ending game-frame ${won ? 'won' : 'lost'}`} style={{ backgroundImage: `url(/assets/generated/${won ? 'victory-jakarta.webp' : 'bankruptcy-jakarta.webp'})` }}>
       <div className="ending-shade" />
       <section>
         {won ? <Trophy /> : <Coins />}
@@ -466,8 +625,10 @@ function Ending({ state, dispatch }: { state: GameState; dispatch: React.Dispatc
         <h1>{won ? 'The city is yours.' : 'The market collected.'}</h1>
         <p>{won ? 'The final market has cleared.' : `You needed ${money(marketTarget(state.round, state.difficulty))} and closed at ${money(state.player.score)}.`}</p>
         <div className="ending-score"><span>Run score</span><strong>{money(state.runScore)}</strong></div>
-        <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN', difficulty: state.difficulty })}><Sparkles /> Run it back</button>
-        <button className="ghost" onClick={() => dispatch({ type: 'GO_MENU' })}>Return to title</button>
+        <div className="ending-actions">
+          <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN', difficulty: state.difficulty })}><Sparkles /> Run it back</button>
+          <button className="ghost" onClick={() => dispatch({ type: 'GO_MENU' })}>Return to title</button>
+        </div>
       </section>
     </main>
   );
@@ -478,6 +639,25 @@ export default function App() {
   const [saved, setSaved] = useState<GameState | null>(() => loadSave());
   const [legacyCleared] = useState(() => migrateLegacySave());
   const [highScore, setHighScore] = useState(() => recordHighScore(0));
+
+  // Autoplay policy: the context may only start inside a user gesture.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  const phase = state.phase;
+  const muted = state.muted;
+  useEffect(() => {
+    if (muted || (phase !== 'playing' && phase !== 'shop')) { stopBgm(); return; }
+    startBgm(false);
+  }, [phase, muted]);
+  useEffect(() => stopBgm, []);
 
   useEffect(() => {
     saveGame(state);

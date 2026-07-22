@@ -1,41 +1,183 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+const LANDSCAPE_VIEWPORTS = [
+  { width: 1440, height: 900 },
+  { width: 1366, height: 768 },
+  { width: 844, height: 390 },
+  { width: 740, height: 360 },
+];
+
+/** The document itself must never scroll: every screen lives inside the canvas. */
+async function expectNoDocumentOverflow(page: Page, label: string) {
+  const box = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    height: document.documentElement.scrollHeight,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  }));
+  expect(box.width, `${label}: horizontal overflow`).toBeLessThanOrEqual(box.viewportWidth);
+  expect(box.height, `${label}: vertical overflow`).toBeLessThanOrEqual(box.viewportHeight);
+}
+
+/** The canvas must sit inside the viewport on both axes. */
+async function expectFrameFits(page: Page, label: string) {
+  const frame = page.locator('.game-frame');
+  await expect(frame, `${label}: frame present`).toBeVisible();
+  const box = (await frame.boundingBox())!;
+  const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  expect(Math.ceil(box.width), `${label}: frame wider than viewport`).toBeLessThanOrEqual(viewport.width);
+  expect(Math.ceil(box.height), `${label}: frame taller than viewport`).toBeLessThanOrEqual(viewport.height);
+}
+
+async function startRun(page: Page) {
+  await page.getByRole('button', { name: /Start market run/i }).click();
+  await page.getByRole('button', { name: /Deal market one/i }).click();
+  await expect(page.getByLabel('Market progress')).toBeVisible();
+}
+
+/** Commits the selected cards and waits for the score cascade to finish. */
+async function commitAndSettle(page: Page) {
+  await page.getByRole('button', { name: /Commit portfolio/i }).click();
+  await expect(page.locator('.score-sequence')).toHaveCount(0, { timeout: 10_000 });
+}
+
+/** Plays four hands so the round resolves into the shop or an ending. */
+async function playOutRound(page: Page) {
+  const hand = page.locator('.hand-cards');
+  for (let played = 0; played < 4; played += 1) {
+    if (!(await page.getByRole('button', { name: /Commit portfolio/i }).isVisible().catch(() => false))) return;
+    await hand.getByRole('button', { name: /^1\./ }).click();
+    await hand.getByRole('button', { name: /^2\./ }).click();
+    await commitAndSettle(page);
+  }
+}
 
 test('starts a solo market, scores, and persists the run', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Start market run/i }).click();
-  await page.getByRole('button', { name: /Next/i }).click();
-  await page.getByRole('button', { name: /Next/i }).click();
-  await page.getByRole('button', { name: /Deal market one/i }).click();
-  await expect(page.getByLabel('Market score and target')).toBeVisible();
-  await page.getByRole('button', { name: /^1\./ }).click();
+  await startRun(page);
+  await page.locator('.hand-cards').getByRole('button', { name: /^1\./ }).click();
   await page.getByRole('button', { name: /Commit portfolio/i }).click();
   await expect(page.getByText(/You scored/)).toBeVisible({ timeout: 10_000 });
   await page.reload();
   await expect(page.getByRole('button', { name: /Continue round 1/i })).toBeVisible();
 });
 
-test('landscape gameplay has no document overflow', async ({ page }) => {
-  for (const viewport of [
-    { width: 1440, height: 900 },
-    { width: 1366, height: 768 },
-    { width: 844, height: 390 },
-    { width: 740, height: 360 },
-  ]) {
+test('the intro reaches the first decision in one click', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Start market run/i }).click();
+  await expect(page.getByRole('button', { name: /Deal market one/i })).toBeVisible();
+  await page.getByRole('button', { name: /Deal market one/i }).click();
+  await expect(page.getByRole('button', { name: /Commit portfolio/i })).toBeVisible();
+});
+
+test('every screen fits the canvas without scrolling the document', async ({ page }) => {
+  test.setTimeout(180_000);
+  for (const viewport of LANDSCAPE_VIEWPORTS) {
+    const at = `${viewport.width}x${viewport.height}`;
     await page.setViewportSize(viewport);
     await page.goto('/');
+
+    // Menu
+    await expectNoDocumentOverflow(page, `menu ${at}`);
+    await expectFrameFits(page, `menu ${at}`);
+    await expect(page.getByRole('button', { name: /Start market run/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /How to play/i })).toBeVisible();
+    await expect(page.getByLabel('Volume')).toBeVisible();
+
+    // Compendium (overflows the canvas, so it must scroll inside it)
+    await page.getByRole('button', { name: /^Cards$/i }).click();
+    await expect(page.getByRole('dialog', { name: /Property Compendium/i })).toBeVisible();
+    await expectNoDocumentOverflow(page, `compendium ${at}`);
+    await page.getByRole('button', { name: /^Close$/i }).click();
+
+    // Guide
+    await page.getByRole('button', { name: /How to play/i }).click();
+    await expect(page.getByRole('dialog', { name: /The Market Ledger/i })).toBeVisible();
+    await expectNoDocumentOverflow(page, `guide ${at}`);
+    await page.getByRole('button', { name: /^Close$/i }).click();
+
+    // Intro
     await page.getByRole('button', { name: /Start market run/i }).click();
-    await page.getByRole('button', { name: /Next/i }).click();
-    await page.getByRole('button', { name: /Next/i }).click();
+    await expectNoDocumentOverflow(page, `intro ${at}`);
+    await expectFrameFits(page, `intro ${at}`);
+    await expect(page.getByRole('button', { name: /Deal market one/i })).toBeVisible();
+
+    // Table
     await page.getByRole('button', { name: /Deal market one/i }).click();
-    const dimensions = await page.evaluate(() => ({
-      width: document.documentElement.scrollWidth,
-      height: document.documentElement.scrollHeight,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-    }));
-    expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewportWidth);
-    expect(dimensions.height).toBeLessThanOrEqual(dimensions.viewportHeight);
+    await expectNoDocumentOverflow(page, `table ${at}`);
+    await expectFrameFits(page, `table ${at}`);
     await expect(page.getByRole('button', { name: /Commit portfolio/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Discard/i })).toBeVisible();
+    await expect(page.getByRole('progressbar')).toHaveCount(2);
+  }
+});
+
+test('the shop fits the canvas at every landscape size', async ({ page }) => {
+  test.setTimeout(180_000);
+  for (const viewport of LANDSCAPE_VIEWPORTS) {
+    const at = `${viewport.width}x${viewport.height}`;
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    // Street targets are the lowest, so a two-card greedy round reliably clears.
+    await page.getByRole('button', { name: /Street/i }).click();
+    await startRun(page);
+    await playOutRound(page);
+    if (!(await page.getByRole('heading', { name: /The Night Market/i }).isVisible().catch(() => false))) continue;
+    await expectNoDocumentOverflow(page, `shop ${at}`);
+    await expectFrameFits(page, `shop ${at}`);
+    await expect(page.getByRole('button', { name: /Enter round 2/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reroll/i })).toBeVisible();
+  }
+});
+
+/**
+ * Rewrites the live save so the next hand resolves the run, then resumes it.
+ * The reducer still decides the outcome; only the starting position is seeded.
+ */
+async function seedFinalHand(page: Page, score: number) {
+  await page.evaluate((finalScore) => {
+    const key = 'deck-of-capitalist-save-v2';
+    const save = JSON.parse(localStorage.getItem(key)!);
+    save.state.round = 8;
+    save.state.player.handsLeft = 1;
+    save.state.player.score = finalScore;
+    localStorage.setItem(key, JSON.stringify(save));
+  }, score);
+  await page.reload();
+  await page.getByRole('button', { name: /Continue round 8/i }).click();
+}
+
+test('both endings fit the canvas', async ({ page }) => {
+  test.setTimeout(180_000);
+  for (const viewport of [LANDSCAPE_VIEWPORTS[0], LANDSCAPE_VIEWPORTS[2]]) {
+    const at = `${viewport.width}x${viewport.height}`;
+
+    // Victory: already past the final target when the last hand resolves.
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await startRun(page);
+    await seedFinalHand(page, 1_000_000);
+    await page.locator('.hand-cards').getByRole('button', { name: /^1\./ }).click();
+    await page.getByRole('button', { name: /Commit portfolio/i }).click();
+    await expect(page.getByRole('heading', { name: /The city is yours/i })).toBeVisible({ timeout: 15_000 });
+    await expectNoDocumentOverflow(page, `victory ${at}`);
+    await expectFrameFits(page, `victory ${at}`);
+    await expect(page.getByRole('button', { name: /Run it back/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Return to title/i })).toBeVisible();
+
+    // Defeat: nowhere near the final target when the last hand resolves.
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await startRun(page);
+    await seedFinalHand(page, 0);
+    await page.locator('.hand-cards').getByRole('button', { name: /^1\./ }).click();
+    await page.getByRole('button', { name: /Commit portfolio/i }).click();
+    await expect(page.getByRole('heading', { name: /The market collected/i })).toBeVisible({ timeout: 15_000 });
+    await expectNoDocumentOverflow(page, `gameover ${at}`);
+    await expectFrameFits(page, `gameover ${at}`);
+    await expect(page.getByRole('button', { name: /Run it back/i })).toBeVisible();
+    await page.evaluate(() => localStorage.clear());
   }
 });
 
@@ -43,14 +185,41 @@ test('portrait view shows the rotation gate', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.getByRole('status').getByText('Rotate to trade')).toBeVisible();
+  await expectNoDocumentOverflow(page, 'portrait gate');
 });
 
 test('mute preference persists', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Sound/i }).click();
+  await page.getByRole('button', { name: /Mute sound/i }).click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('doc-muted'))).toBe('true');
   await page.reload();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('doc-muted'))).toBe('true');
+});
+
+test('volume level persists across reloads', async ({ page }) => {
+  await page.goto('/');
+  const slider = page.getByLabel('Volume');
+  await slider.fill('30');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('doc-volume'))).toBe('0.3');
+  await page.reload();
+  await expect(page.getByLabel('Volume')).toHaveValue('30');
+});
+
+test('the music toggle persists independently of mute', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Turn background music off/i }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('doc-bgm'))).toBe('false');
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Turn background music on/i })).toBeVisible();
+});
+
+test('the in-game HUD exposes mute and volume', async ({ page }) => {
+  await page.goto('/');
+  await startRun(page);
+  const hud = page.locator('.hud-actions');
+  await expect(hud.getByLabel('Volume')).toBeVisible();
+  await expect(hud.getByRole('button', { name: /Mute sound|Unmute sound/i })).toBeVisible();
+  await expect(hud.getByRole('button', { name: /background music/i })).toBeVisible();
 });
 
 test('compendium cards open a full-size artwork preview', async ({ page }) => {

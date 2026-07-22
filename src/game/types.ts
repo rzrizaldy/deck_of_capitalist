@@ -49,7 +49,7 @@ export interface ScoreBreakdown {
   notes: string[];
 }
 
-export interface CompetitorState {
+export interface PlayerState {
   drawPile: Card[];
   discardPile: Card[];
   hand: Card[];
@@ -81,7 +81,7 @@ export interface GameState {
   round: number;
   seed: number;
   rngState: number;
-  player: CompetitorState;
+  player: PlayerState;
   selectedIds: string[];
   shop: ShopState | null;
   events: GameEvent[];
@@ -89,6 +89,8 @@ export interface GameState {
   lastPlayedCards: Card[];
   muted: boolean;
   runScore: number;
+  /** Monotonic count of discard-pile recycles, used to cue reshuffle feedback. */
+  reshuffles: number;
 }
 
 export type GameAction =

@@ -29,6 +29,28 @@ describe('campaign reducer', () => {
     expect(run.runScore).toBeGreaterThan(0);
   }, 20_000);
 
+  it('counts and announces a discard-pile reshuffle', () => {
+    const base = createRun('trader', 77);
+    // Draw pile deep enough to refill: no recycle, no announcement.
+    const stocked: GameState = { ...base, reshuffles: 0, selectedIds: [base.player.hand[0].instanceId] };
+    const after = gameReducer(stocked, { type: 'PLAYER_DISCARD' });
+    expect(after.player.hand).toHaveLength(8);
+    expect(after.reshuffles).toBe(0);
+    expect(after.events.at(-1)?.message).not.toMatch(/reshuffled/i);
+
+    // Draw pile exhausted: the discard pile must be recycled to refill.
+    const drained: GameState = {
+      ...base,
+      reshuffles: 0,
+      player: { ...base.player, drawPile: [], discardPile: base.player.drawPile.slice(0, 4) },
+      selectedIds: [base.player.hand[0].instanceId],
+    };
+    const recycled = gameReducer(drained, { type: 'PLAYER_DISCARD' });
+    expect(recycled.player.hand).toHaveLength(8);
+    expect(recycled.reshuffles).toBe(1);
+    expect(recycled.events.at(-1)?.message).toMatch(/reshuffled/i);
+  });
+
   it('caps selection at five cards and rejects empty plays', () => {
     let run = createRun('trader', 55);
     run.player.hand.forEach((card) => { run = gameReducer(run, { type: 'TOGGLE_CARD', cardId: card.instanceId }); });

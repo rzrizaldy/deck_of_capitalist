@@ -1,5 +1,5 @@
 import {
-  awardRound, createCompetitor, deckSize, discardCards, emptyState, generateShop,
+  awardRound, createPlayer, deckSize, discardCards, emptyState, generateShop,
   makeCard, playCards, priceFor, replaceCard, resetForRound, marketTarget, MAX_ROUNDS, MIN_DECK_SIZE,
 } from './engine';
 import type { GameAction, GameEvent, GameState } from './types';
@@ -10,7 +10,7 @@ function event(state: GameState, actor: GameEvent['actor'], message: string): Ga
 }
 
 export function createRun(difficulty: GameState['difficulty'] = 'trader', seed = Date.now() >>> 0, muted = false): GameState {
-  const player = createCompetitor('player', seed);
+  const player = createPlayer('player', seed);
   return {
     version: 2,
     phase: 'playing',
@@ -26,8 +26,11 @@ export function createRun(difficulty: GameState['difficulty'] = 'trader', seed =
     lastPlayedCards: [],
     muted,
     runScore: 0,
+    reshuffles: 0,
   };
 }
+
+const RESHUFFLE_NOTE = 'Your discard pile was reshuffled back into the deck.';
 
 function completeRound(state: GameState, playerScore: GameState['lastPlayerScore']): GameState {
   const runScore = state.runScore + state.player.score;
@@ -62,7 +65,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'BEGIN_RUN':
       return state.phase === 'intro' ? { ...state, phase: 'playing' } : state;
     case 'LOAD':
-      return { ...action.state, difficulty: action.state.difficulty ?? 'trader', selectedIds: [], lastPlayedCards: action.state.lastPlayedCards ?? [] };
+      return {
+        ...action.state,
+        difficulty: action.state.difficulty ?? 'trader',
+        selectedIds: [],
+        lastPlayedCards: action.state.lastPlayedCards ?? [],
+        reshuffles: action.state.reshuffles ?? 0,
+      };
     case 'GO_MENU':
       return { ...state, phase: 'menu', selectedIds: [] };
     case 'SET_MUTED':
@@ -77,9 +86,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.phase !== 'playing' || state.selectedIds.length === 0 || state.player.discardsLeft < 1) return state;
       try {
         const result = discardCards(state.player, state.selectedIds, state.rngState);
+        const message = `You recycled ${state.selectedIds.length} deed${state.selectedIds.length === 1 ? '' : 's'}.`;
         return {
           ...state, player: result.side, rngState: result.rngState, selectedIds: [],
-          events: event(state, 'player', `You recycled ${state.selectedIds.length} deed${state.selectedIds.length === 1 ? '' : 's'}.`),
+          reshuffles: state.reshuffles + (result.reshuffled ? 1 : 0),
+          events: event(state, 'player', result.reshuffled ? `${message} ${RESHUFFLE_NOTE}` : message),
         };
       } catch { return state; }
     }
@@ -87,6 +98,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.phase !== 'playing' || state.selectedIds.length === 0 || state.player.handsLeft < 1) return state;
       try {
         const playerResult = playCards(state.player, state.selectedIds, state.rngState);
+        const message = `You scored ${playerResult.score.total.toLocaleString()} with ${playerResult.score.handName}.`;
         const interim: GameState = {
           ...state,
           player: playerResult.side,
@@ -94,7 +106,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           selectedIds: [],
           lastPlayerScore: playerResult.score,
           lastPlayedCards: state.player.hand.filter((card) => state.selectedIds.includes(card.instanceId)),
-          events: event(state, 'player', `You scored ${playerResult.score.total.toLocaleString()} with ${playerResult.score.handName}.`),
+          reshuffles: state.reshuffles + (playerResult.reshuffled ? 1 : 0),
+          events: event(state, 'player', playerResult.reshuffled ? `${message} ${RESHUFFLE_NOTE}` : message),
         };
         if (playerResult.side.handsLeft === 0) return completeRound(interim, playerResult.score);
         return interim;

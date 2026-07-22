@@ -1,7 +1,7 @@
 import { CARD_TEMPLATES, GROUPS, HANDS, STARTING_DUPLICATES, TYCOONS } from './data';
 import { pick, shuffle } from './rng';
 import type {
-  Card, CardTemplate, CompetitorState, Difficulty, GameState, GroupKey, HandKey,
+  Card, CardTemplate, PlayerState, Difficulty, GameState, GroupKey, HandKey,
   ScoreBreakdown, ShopState, Tycoon,
 } from './types';
 
@@ -22,6 +22,13 @@ export function marketTarget(round: number, difficulty: Difficulty = 'trader'): 
   return Math.round((baseline * MARKET_DIFFICULTY[difficulty].targetFactor) / 10) * 10;
 }
 
+export interface DrawResult {
+  side: PlayerState;
+  rngState: number;
+  /** True when the discard pile had to be recycled to keep dealing. */
+  reshuffled: boolean;
+}
+
 export function makeCard(template: CardTemplate, suffix: string): Card {
   return { ...template, instanceId: `${template.id}-${suffix}`, bonus: 0 };
 }
@@ -34,19 +41,20 @@ export function createStartingDeck(owner: string): Card[] {
   return templates.map((template, index) => makeCard(template, `${owner}-${index}`));
 }
 
-export function allCards(side: CompetitorState): Card[] {
+export function allCards(side: PlayerState): Card[] {
   return [...side.hand, ...side.drawPile, ...side.discardPile];
 }
 
-export function deckSize(side: CompetitorState): number {
+export function deckSize(side: PlayerState): number {
   return side.hand.length + side.drawPile.length + side.discardPile.length;
 }
 
-export function drawToHand(side: CompetitorState, rngState: number, size = HAND_SIZE): { side: CompetitorState; rngState: number } {
+export function drawToHand(side: PlayerState, rngState: number, size = HAND_SIZE): DrawResult {
   let drawPile = [...side.drawPile];
   let discardPile = [...side.discardPile];
   const hand = [...side.hand];
   let cursor = rngState;
+  let reshuffled = false;
 
   while (hand.length < size) {
     if (drawPile.length === 0) {
@@ -55,16 +63,17 @@ export function drawToHand(side: CompetitorState, rngState: number, size = HAND_
       drawPile = mixed.items;
       cursor = mixed.state;
       discardPile = [];
+      reshuffled = true;
     }
     const card = drawPile.pop();
     if (card) hand.push(card);
   }
-  return { side: { ...side, hand, drawPile, discardPile }, rngState: cursor };
+  return { side: { ...side, hand, drawPile, discardPile }, rngState: cursor, reshuffled };
 }
 
-export function createCompetitor(owner: string, rngState: number): { side: CompetitorState; rngState: number } {
+export function createPlayer(owner: string, rngState: number): DrawResult {
   const mixed = shuffle(createStartingDeck(owner), rngState);
-  const base: CompetitorState = {
+  const base: PlayerState = {
     drawPile: mixed.items,
     discardPile: [],
     hand: [],
@@ -138,26 +147,11 @@ export function scoreHand(cards: Card[], tycoons: Tycoon[]): ScoreBreakdown {
   };
 }
 
-export function combinations<T>(items: T[], maxSize = 5): T[][] {
-  const output: T[][] = [];
-  const walk = (start: number, current: T[]) => {
-    if (current.length > 0) output.push([...current]);
-    if (current.length === maxSize) return;
-    for (let index = start; index < items.length; index += 1) {
-      current.push(items[index]);
-      walk(index + 1, current);
-      current.pop();
-    }
-  };
-  walk(0, []);
-  return output;
-}
-
-export function playCards(side: CompetitorState, cardIds: string[], rngState: number): { side: CompetitorState; rngState: number; score: ScoreBreakdown } {
+export function playCards(side: PlayerState, cardIds: string[], rngState: number): DrawResult & { score: ScoreBreakdown } {
   const chosen = side.hand.filter((card) => cardIds.includes(card.instanceId));
   if (chosen.length < 1 || chosen.length > 5 || side.handsLeft < 1) throw new Error('Illegal play');
   const score = scoreHand(chosen, side.tycoons);
-  const next: CompetitorState = {
+  const next: PlayerState = {
     ...side,
     hand: side.hand.filter((card) => !cardIds.includes(card.instanceId)),
     discardPile: [...side.discardPile, ...chosen],
@@ -168,10 +162,10 @@ export function playCards(side: CompetitorState, cardIds: string[], rngState: nu
   return { ...drawn, score };
 }
 
-export function discardCards(side: CompetitorState, cardIds: string[], rngState: number): { side: CompetitorState; rngState: number } {
+export function discardCards(side: PlayerState, cardIds: string[], rngState: number): DrawResult {
   const chosen = side.hand.filter((card) => cardIds.includes(card.instanceId));
   if (chosen.length < 1 || chosen.length > 5 || side.discardsLeft < 1) throw new Error('Illegal discard');
-  const next: CompetitorState = {
+  const next: PlayerState = {
     ...side,
     hand: side.hand.filter((card) => !cardIds.includes(card.instanceId)),
     discardPile: [...side.discardPile, ...chosen],
@@ -180,19 +174,19 @@ export function discardCards(side: CompetitorState, cardIds: string[], rngState:
   return drawToHand(next, rngState);
 }
 
-export function interestFor(side: CompetitorState): number {
+export function interestFor(side: PlayerState): number {
   const cap = side.tycoons.reduce((current, tycoon) =>
     tycoon.effect.kind === 'interest_cap' ? Math.max(current, tycoon.effect.amount) : current, 5);
   return Math.min(Math.floor(side.cash / 5), cap);
 }
 
-export function priceFor(side: CompetitorState, basePrice: number): number {
+export function priceFor(side: PlayerState, basePrice: number): number {
   const factor = side.tycoons.reduce((current, tycoon) =>
     tycoon.effect.kind === 'shop_discount' ? current * tycoon.effect.amount : current, 1);
   return Math.max(1, Math.ceil(basePrice * factor));
 }
 
-export function awardRound(side: CompetitorState): CompetitorState {
+export function awardRound(side: PlayerState): PlayerState {
   return { ...side, cash: side.cash + 5 + interestFor(side) };
 }
 
@@ -209,7 +203,7 @@ export function generateShop(owned: Tycoon[], rngState: number): { shop: ShopSta
   };
 }
 
-export function replaceCard(side: CompetitorState, cardId: string, transform: (card: Card) => Card | null): CompetitorState {
+export function replaceCard(side: PlayerState, cardId: string, transform: (card: Card) => Card | null): PlayerState {
   const apply = (cards: Card[]) => cards.flatMap((card) => {
     if (card.instanceId !== cardId) return [card];
     const changed = transform(card);
@@ -218,9 +212,9 @@ export function replaceCard(side: CompetitorState, cardId: string, transform: (c
   return { ...side, hand: apply(side.hand), drawPile: apply(side.drawPile), discardPile: apply(side.discardPile) };
 }
 
-export function resetForRound(side: CompetitorState, rngState: number): { side: CompetitorState; rngState: number } {
+export function resetForRound(side: PlayerState, rngState: number): DrawResult {
   const mixed = shuffle(allCards(side), rngState);
-  const reset: CompetitorState = {
+  const reset: PlayerState = {
     ...side, hand: [], discardPile: [], drawPile: mixed.items,
     score: 0, handsLeft: MAX_HANDS, discardsLeft: MAX_DISCARDS,
   };
@@ -228,10 +222,10 @@ export function resetForRound(side: CompetitorState, rngState: number): { side: 
 }
 
 export function emptyState(muted = false): GameState {
-  const empty: CompetitorState = { drawPile: [], discardPile: [], hand: [], score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3 };
+  const empty: PlayerState = { drawPile: [], discardPile: [], hand: [], score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3 };
   return {
     version: 2, phase: 'menu', difficulty: 'trader', round: 1, seed: 1, rngState: 1,
     player: empty, selectedIds: [], shop: null, events: [],
-    lastPlayerScore: null, lastPlayedCards: [], muted, runScore: 0,
+    lastPlayerScore: null, lastPlayedCards: [], muted, runScore: 0, reshuffles: 0,
   };
 }
