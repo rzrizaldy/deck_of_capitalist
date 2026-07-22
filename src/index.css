@@ -309,6 +309,12 @@ kbd { border: 1px solid #3b4852; background: #121b23; border-radius: 4px; paddin
 .tycoon-card.compact .tycoon-card-copy { position: absolute; inset: auto 0 0; min-height: 22px; padding: .15rem .2rem; background: linear-gradient(transparent, rgba(0,0,0,.94)); }
 .tycoon-card.compact .tycoon-card-copy > span { display: none; }
 .tycoon-card.compact h3 { margin: 0; overflow: hidden; color: #fff2c6; font-size: .42rem; line-height: 1.1; text-align: center; white-space: nowrap; text-overflow: ellipsis; }
+.tycoon-card.tycoon-inspect { padding: 0; color: inherit; font: inherit; text-align: inherit; cursor: zoom-in; }
+.tycoon-card.tycoon-inspect:focus-visible { outline-offset: 3px; }
+.tycoon-preview .preview-details span { display: flex; align-items: center; gap: .35rem; color: #f2d77f; }
+.tycoon-preview .preview-details span svg { width: 16px; height: 16px; }
+.tycoon-preview .preview-details p { margin: .35rem 0; color: #e8ebdb; font-size: .9rem; line-height: 1.42; }
+.tycoon-preview .preview-details small { color: #bac5b2; }
 .shop-grid .tycoon-card { min-width: 0; }
 
 @media (max-width: 900px) and (orientation: landscape) {

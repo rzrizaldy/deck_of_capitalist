@@ -93,8 +93,24 @@ function CardPreview({ card, onClose }: { card: Card; onClose: () => void }) {
   </div>;
 }
 
-function TycoonCard({ tycoon, compact = false, children }: { tycoon: Tycoon; compact?: boolean; children?: React.ReactNode }) {
-  return <article className={`tycoon-card ${compact ? 'compact' : ''}`}>
+function TycoonPreview({ tycoon, onClose }: { tycoon: Tycoon; onClose: () => void }) {
+  return <div className="card-preview-backdrop" role="presentation" onMouseDown={onClose}>
+    <section className="card-preview tycoon-preview" role="dialog" aria-modal="true" aria-label={`${tycoon.name} Tycoon card preview`} onMouseDown={(event) => event.stopPropagation()}>
+      <button className="icon-button preview-close" onClick={onClose} aria-label="Close Tycoon preview"><X /></button>
+      <img src={`/assets/tycoons/${tycoon.id}.webp`} alt={`${tycoon.name} pixel-noir Tycoon artwork`} />
+      <div className="preview-vignette" />
+      <div className="preview-details">
+        <span><Crown /> Tycoon helper</span>
+        <h2>{tycoon.name}</h2>
+        <p>{tycoon.description}</p>
+        <small>Recruited helpers stay in your Inner Circle for the full run.</small>
+      </div>
+    </section>
+  </div>;
+}
+
+function TycoonCard({ tycoon, compact = false, children, onInspect }: { tycoon: Tycoon; compact?: boolean; children?: React.ReactNode; onInspect?: () => void }) {
+  const content = <>
     <img src={`/assets/tycoons/${tycoon.id}.webp`} alt={`${tycoon.name} tycoon helper`} loading="lazy" />
     <div className="tycoon-card-copy">
       <span><Crown aria-hidden="true" /> Tycoon</span>
@@ -102,7 +118,9 @@ function TycoonCard({ tycoon, compact = false, children }: { tycoon: Tycoon; com
       {!compact && <p>{tycoon.description}</p>}
       {children}
     </div>
-  </article>;
+  </>;
+  if (compact && onInspect) return <button className="tycoon-card compact tycoon-inspect" onClick={onInspect} aria-label={`Inspect ${tycoon.name} Tycoon card`} type="button">{content}</button>;
+  return <article className={`tycoon-card ${compact ? 'compact' : ''}`}>{content}</article>;
 }
 
 function ScoreFormula({ score, label }: { score: ScoreBreakdown | null; label: string }) {
@@ -296,6 +314,7 @@ function Intro({ state, dispatch }: { state: GameState; dispatch: React.Dispatch
 function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Dispatch<Parameters<typeof gameReducer>[1]> }) {
   const [busy, setBusy] = useState(false);
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
+  const [inspectedTycoon, setInspectedTycoon] = useState<Tycoon | null>(null);
   const [sequence, setSequence] = useState<ScoreSequence | null>(null);
   const [discardingIds, setDiscardingIds] = useState<string[]>([]);
   const selected = state.player.hand.filter((card) => state.selectedIds.includes(card.instanceId));
@@ -349,7 +368,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
             <header><Crown aria-hidden="true" /><span>Inner circle</span><b>{state.player.tycoons.length}/5</b></header>
             <div className="tycoon-lineup">
               {state.player.tycoons.length
-                ? state.player.tycoons.map((tycoon) => <TycoonCard key={tycoon.id} tycoon={tycoon} compact />)
+                ? state.player.tycoons.map((tycoon) => <TycoonCard key={tycoon.id} tycoon={tycoon} compact onInspect={() => setInspectedTycoon(tycoon)} />)
                 : <p>Clear this blind, then hire a Tycoon at the Night Market.</p>}
             </div>
           </section>
@@ -388,6 +407,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
         </div>
       </section>
       {inspectedCard && <CardPreview card={inspectedCard} onClose={() => setInspectedCard(null)} />}
+      {inspectedTycoon && <TycoonPreview tycoon={inspectedTycoon} onClose={() => setInspectedTycoon(null)} />}
     </main>
   );
 }
