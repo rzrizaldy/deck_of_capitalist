@@ -19,6 +19,19 @@ const LOCALE_KEY = 'doc-locale';
 const LocaleContext = createContext<Locale>('id');
 const useLocale = () => useContext(LocaleContext);
 const tr = (locale: Locale, english: string, indonesian: string) => locale === 'id' ? indonesian : english;
+const localizedGroup = (group: keyof typeof GROUPS, locale: Locale) => tr(locale, ({ BROWN: 'Regional', SKY: 'Java', PINK: 'Heritage', ORANGE: 'Tourism', RED: 'Industrial', YELLOW: 'Lifestyle', GREEN: 'Golden Triangle', BLUE: 'Elite', RAILROAD: 'Transit', UTILITY: 'Utility' } as const)[group], ({ BROWN: 'Regional', SKY: 'Jawa', PINK: 'Warisan', ORANGE: 'Wisata', RED: 'Industri', YELLOW: 'Gaya Hidup', GREEN: 'Segitiga Emas', BLUE: 'Elite', RAILROAD: 'Transit', UTILITY: 'Utilitas' } as const)[group]);
+const localizedHand = (hand: ScoreBreakdown['hand'], locale: Locale) => tr(locale, ({ LIQUIDATION: 'Liquidation', DEVELOPMENT: 'Development', JOINT_VENTURE: 'Joint Venture', TAKEOVER: 'Takeover', CONGLOMERATE: 'Conglomerate', DIVERSIFIED: 'Diversified Portfolio', TRANSPORT: 'Transport Network' } as const)[hand], HANDS[hand].name);
+const localizedModifier = (modifier: GameState['modifier'], locale: Locale) => {
+  const english = ({ BANJIR: ['Flood', 'Regional and Heritage deeds score 0 this market.'], MACET: ['Gridlock', 'Transit deeds score half chips this market.'], MATI_LAMPU: ['Blackout', 'Utility deeds score 0 this market.'], GANJIL_GENAP: ['Odd-Even', `Only ${modifier.parity ?? 'odd'}-chip deeds score this market.`], SIDAK: ['Inspection', 'Tycoon effects are disabled this market.'], MUSIM_KAWIN: ['Mating Season', 'Lifestyle chips double; all other deed chips are −20%.'], REKLAMASI: ['Reclamation', 'Three random deeds are removed for this market only.'] } as const)[modifier.id];
+  return locale === 'en' ? { name: english[0], summary: english[1] } : modifier;
+};
+const localizedConsumable = (item: Consumable, locale: Locale) => locale === 'id' ? item : ({
+  SERTIFIKAT: { ...item, name: 'Certificate', description: 'Retitle one selected deed into the next asset group.' },
+  NOTARIS: { ...item, name: 'Notary', description: 'Copy one selected deed into your discard pile.' },
+  PUNGLI: { ...item, name: 'Payoff', description: 'Reroll the public market event. Reclamation is off the table.' },
+  UANG_PELICIN: { ...item, name: 'Grease Money', description: 'Gain one extra hand for this market only.' },
+  SITA: { ...item, name: 'Seizure', description: 'Destroy exactly three selected deeds from your hand.' },
+}[item.id]);
 
 const money = (value: number) => value.toLocaleString('en-US');
 const clearedPercent = (score: number, target: number) =>
@@ -152,14 +165,15 @@ type ScoreStage = 'cards' | 'chips' | 'multiplier' | 'total';
 interface ScoreSequence { cards: Card[]; score: ScoreBreakdown; stage: ScoreStage; id: number; }
 
 function ScoreCascade({ sequence }: { sequence: ScoreSequence }) {
+  const locale = useLocale();
   const { score, stage } = sequence;
   const chips = score.cardChips + score.bonusChips;
   const multiplier = score.baseMultiplier + score.bonusMultiplier;
   const showChips = stage !== 'cards';
   const showMultiplier = stage === 'multiplier' || stage === 'total';
   const showTotal = stage === 'total';
-  return <div className={`score-cascade stage-${stage}`} aria-live="assertive" aria-label={`Scoring ${score.handName}: ${money(score.total)}`}>
-    <span className="cascade-hand">{score.handName}</span>
+  return <div className={`score-cascade stage-${stage}`} aria-live="assertive" aria-label={`${tr(locale, 'Scoring', 'Menghitung')} ${localizedHand(score.hand, locale)}: ${money(score.total)}`}>
+    <span className="cascade-hand">{localizedHand(score.hand, locale)}</span>
     <div className={showChips ? 'cascade-part live' : 'cascade-part'}><small>CHIPS</small><strong>{showChips && <AnimatedNumber value={chips} active />}</strong></div>
     <i className={showMultiplier ? 'live' : ''}>×</i>
     <div className={showMultiplier ? 'cascade-part live multiplier' : 'cascade-part multiplier'}><small>MULT</small><strong>{showMultiplier && <AnimatedNumber value={multiplier} active />}</strong></div>
@@ -171,6 +185,7 @@ function ScoreCascade({ sequence }: { sequence: ScoreSequence }) {
 function AssetCard({ card, selected = false, compact = false, departing = false, onClick, onInspect, index }: {
   card: Card; selected?: boolean; compact?: boolean; departing?: boolean; onClick?: () => void; onInspect?: () => void; index?: number;
 }) {
+  const locale = useLocale();
   const group = GROUPS[card.group];
   const holdTimer = useRef<number>();
   const hoverTimer = useRef<number>();
@@ -219,7 +234,7 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
     >
       <img className="card-art" src={`/assets/cards/${card.id}.webp`} alt={onInspect ? `Inspect ${card.name} artwork` : ''} loading="lazy" />
       {onInspect && <span className="inspect-hint" aria-hidden="true"><Eye /></span>}
-      <span className="card-stripe">{group.label}</span>
+      <span className="card-stripe">{localizedGroup(card.group, locale)}</span>
       <strong>{card.name}</strong>
       <span className="card-value"><Coins aria-hidden="true" /> {card.chips + card.bonus}</span>
       {card.bonus > 0 && <span className="upgrade">+{card.bonus}</span>}
@@ -228,6 +243,7 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
 }
 
 function CardPreview({ card, onClose }: { card: Card; onClose: () => void }) {
+  const locale = useLocale();
   const group = GROUPS[card.group];
   return <div className="card-preview-backdrop" role="presentation" onMouseDown={onClose}>
     <section className="card-preview" role="dialog" aria-modal="true" aria-label={`${card.name} card preview`} onMouseDown={(event) => event.stopPropagation()}>
@@ -235,7 +251,7 @@ function CardPreview({ card, onClose }: { card: Card; onClose: () => void }) {
       <img src={`/assets/cards/${card.id}.webp`} alt={`${card.name} pixel-noir property illustration`} />
       <div className="preview-vignette" />
       <div className="preview-details">
-        <span style={{ '--preview-group': group.color } as React.CSSProperties}>{group.label}</span>
+        <span style={{ '--preview-group': group.color } as React.CSSProperties}>{localizedGroup(card.group, locale)}</span>
         <h2>{card.name}</h2>
         <div><b><Coins /> {card.chips + card.bonus}</b>{card.bonus > 0 && <small>Renovation +{card.bonus}</small>}</div>
         <p>{group.label} deed · click outside to return to the table</p>
@@ -277,10 +293,11 @@ function TycoonCard({ tycoon, compact = false, bought = false, children, onInspe
 }
 
 function ScoreFormula({ score, label }: { score: ScoreBreakdown | null; label: string }) {
+  const locale = useLocale();
   if (!score) return <div className="score-formula muted"><span>{label}</span><strong>Select up to five deeds</strong></div>;
   return (
     <div className="score-formula">
-      <span>{label} · {score.handName}</span>
+      <span>{label} · {localizedHand(score.hand, locale)}</span>
       <strong>
         {score.cardChips + score.bonusChips}
         <small> × </small>
@@ -319,14 +336,15 @@ const HAND_RECIPES: Record<string, string[]> = {
  * read as "same group" at a glance. The wording lives once, next to the name.
  */
 function PortfolioRecipe({ hand }: { hand: keyof typeof HANDS }) {
+  const locale = useLocale();
   const groups = HAND_RECIPES[hand];
   return (
-    <div className="portfolio-recipe" aria-label={`${HANDS[hand].name} card pattern`}>
+    <div className="portfolio-recipe" aria-label={`${localizedHand(hand, locale)} ${tr(locale, 'card pattern', 'pola kartu')} `}>
       <div className="recipe-cards">
         {groups.map((group, index) => {
           const visual = GROUPS[group as keyof typeof GROUPS];
           return <span key={`${group}-${index}`} style={{ '--recipe-color': visual.color, '--recipe-ink': visual.ink } as React.CSSProperties}>
-            {hand === 'TRANSPORT' ? '↔' : visual.label.slice(0, 1)}
+            {hand === 'TRANSPORT' ? '↔' : localizedGroup(group as keyof typeof GROUPS, locale).slice(0, 1)}
           </span>;
         })}
       </div>
@@ -388,7 +406,7 @@ function Guide({ onClose }: { onClose: () => void }) {
           <p className="guide-note">Higher patterns are rarer and multiply far harder. The swatches show which groups the cards must come from.</p>
           <div className="rank-list">
             {Object.entries(HANDS).map(([key, hand]) => (
-              <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{hand.name}</strong><small>{hand.description}</small></span><b>×{hand.multiplier}</b></div>
+              <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{localizedHand(key as keyof typeof HANDS, locale)}</strong><small>{hand.description}</small></span><b>×{hand.multiplier}</b></div>
             ))}
           </div>
           <h3>{tr(locale, 'Keyboard', 'Keyboard')}</h3>
@@ -503,6 +521,7 @@ function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
 
 function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const locale = useLocale();
+  const modifier = localizedModifier(state.modifier, locale);
   const target = money(marketTarget(1, state.difficulty, state.modifier));
   const buddy = COMPANIONS[state.companion];
   return <main className="intro-screen game-frame">
@@ -511,7 +530,7 @@ function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
       <h1>{tr(locale, `Reach ${target} in four hands.`, `Raih ${target} dalam empat tangan.`)}</h1>
       <div className="modifier-brief" role="note">
         <img src={`/assets/modifiers/${state.modifier.art}.webp`} alt="" />
-        <span><b>{state.modifier.name}</b>{state.modifier.summary}</span>
+        <span><b>{modifier.name}</b>{modifier.summary}</span>
       </div>
       {/* The first three things the player will actually touch, in order. The
           Night Market is deliberately left out — they meet it when they win. */}
@@ -593,7 +612,7 @@ function ConsumableRack({ state, dispatch }: { state: GameState; dispatch: Dispa
     {state.player.consumables.length ? <div>
       {state.player.consumables.map((item) => <article key={item.id}>
         <img src={`/assets/consumables/${item.art}.webp`} alt="" />
-        <span><b>{item.name}</b><small>{item.description}</small></span>
+        <span><b>{localizedConsumable(item, locale).name}</b><small>{localizedConsumable(item, locale).description}</small></span>
         <button
           className="secondary"
           disabled={!canUse(item)}
@@ -607,6 +626,7 @@ function ConsumableRack({ state, dispatch }: { state: GameState; dispatch: Dispa
 
 function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const locale = useLocale();
+  const modifier = localizedModifier(state.modifier, locale);
   const [busy, setBusy] = useState(false);
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
   const [inspectedTycoon, setInspectedTycoon] = useState<Tycoon | null>(null);
@@ -698,9 +718,9 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             <ProgressRail score={state.player.score} target={target} tone="table" />
             <small>{remaining ? tr(locale, `${money(remaining)} to clear`, `${money(remaining)} lagi untuk tembus`) : tr(locale, 'Target cleared', 'Target tercapai')}</small>
           </div>
-          <div className="market-modifier" role="note" aria-label={`${state.modifier.name}: ${state.modifier.summary}`}>
+          <div className="market-modifier" role="note" aria-label={`${modifier.name}: ${modifier.summary}`}>
             <img src={`/assets/modifiers/${state.modifier.art}.webp`} alt="" />
-            <span><b>{state.modifier.name}</b>{state.modifier.summary}</span>
+            <span><b>{modifier.name}</b>{modifier.summary}</span>
           </div>
           <section className="tycoon-shelf" aria-label="Your Tycoon helpers">
             <header><Crown aria-hidden="true" /><span>{tr(locale, 'Inner circle', 'Lingkar dalam')}</span><b>{state.player.tycoons.length}/{MAX_TYCOONS}</b></header>
@@ -868,7 +888,7 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
               const price = priceFor(state.player, item.cost);
               return <article key={item.id} className={flash === item.id ? 'bought' : ''}>
                 <img src={`/assets/consumables/${item.art}.webp`} alt="" />
-                <div><h3>{item.name}</h3><p>{item.description}</p></div>
+                <div><h3>{localizedConsumable(item, locale).name}</h3><p>{localizedConsumable(item, locale).description}</p></div>
                 <button disabled={state.player.cash < price || state.player.consumables.length >= 2} onClick={() => buy({ type: 'BUY_CONSUMABLE', consumableId: item.id }, item.id, price)}>{tr(locale, 'Buy', 'Beli')} · ${price}</button>
               </article>;
             })}
