@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { MARKET_DIFFICULTY, MARKET_TARGETS, marketTarget, priceFor, scoreHand } from '../src/game/engine';
+import { MARKET_DIFFICULTY, MARKET_TARGETS, marketTarget, MAX_TYCOONS, priceFor, scoreHand } from '../src/game/engine';
 import { createRun, gameReducer } from '../src/game/reducer';
-import type { Card, Difficulty, GameState, Tycoon } from '../src/game/types';
+import type { Card, Difficulty, GameState, MarketModifier, Tycoon } from '../src/game/types';
 
 /**
  * Headless balance harness.
@@ -38,11 +38,11 @@ function subsetsFor(size: number): number[][] {
   return cached;
 }
 
-function bestPlay(hand: Card[], tycoons: Tycoon[]): { cards: Card[]; total: number } {
+function bestPlay(hand: Card[], tycoons: Tycoon[], modifier: MarketModifier): { cards: Card[]; total: number } {
   let best: { cards: Card[]; total: number } = { cards: [], total: -1 };
   for (const indices of subsetsFor(hand.length)) {
     const cards = indices.map((index) => hand[index]);
-    const total = scoreHand(cards, tycoons).total;
+    const total = scoreHand(cards, tycoons, { modifier }).total;
     if (total > best.total) best = { cards, total };
   }
   return best;
@@ -70,10 +70,10 @@ type Policy = 'skilled' | 'naive';
 function playRound(state: GameState, policy: Policy): GameState {
   let current = state;
   while (current.phase === 'playing' && current.player.handsLeft > 0) {
-    const target = marketTarget(current.round, current.difficulty);
+    const target = marketTarget(current.round, current.difficulty, current.modifier);
     const needed = Math.max(0, target - current.player.score);
     const pace = needed / current.player.handsLeft;
-    let best = bestPlay(current.player.hand, current.player.tycoons);
+    let best = bestPlay(current.player.hand, current.player.tycoons, current.modifier);
 
     // Redraw while the best available hand is well short of the pace we need.
     while (policy === 'skilled' && current.player.discardsLeft > 0 && best.total < pace * 0.85) {
@@ -82,7 +82,7 @@ function playRound(state: GameState, policy: Policy): GameState {
       const after = gameReducer(select(current, junk), { type: 'PLAYER_DISCARD' });
       if (after === current) break;
       current = after;
-      best = bestPlay(current.player.hand, current.player.tycoons);
+      best = bestPlay(current.player.hand, current.player.tycoons, current.modifier);
     }
 
     current = gameReducer(select(current, best.cards), { type: 'PLAYER_PLAY' });
@@ -96,7 +96,7 @@ function shopTurn(state: GameState, policy: Policy): GameState {
   if (policy === 'naive') return gameReducer(current, { type: 'NEXT_ROUND' });
   const offers = [...(current.shop?.tycoons ?? [])].sort((a, b) => a.cost - b.cost);
   for (const tycoon of offers) {
-    if (current.player.tycoons.length >= 5) break;
+    if (current.player.tycoons.length >= MAX_TYCOONS) break;
     if (current.player.cash < priceFor(current.player, tycoon.cost)) continue;
     current = gameReducer(current, { type: 'BUY_TYCOON', tycoonId: tycoon.id });
   }
@@ -155,10 +155,16 @@ describe('market target balance', () => {
     expect(skilled).toHaveLength(3);
   }, 120_000);
 
-  it('is clearable end to end on every difficulty', () => {
-    skilled.forEach((result) => {
-      expect(result.winRate, `${result.difficulty} skilled win rate`).toBeGreaterThan(0.5);
-    });
+  it('keeps the intended skill-and-stakes bands', () => {
+    const [street, market, highStakes] = skilled;
+    const [, naiveMarket] = naive;
+    expect(street.winRate, 'Street skilled win rate').toBeGreaterThanOrEqual(0.75);
+    expect(street.winRate, 'Street skilled win rate').toBeLessThanOrEqual(0.9);
+    expect(market.winRate, 'Market skilled win rate').toBeGreaterThanOrEqual(0.55);
+    expect(market.winRate, 'Market skilled win rate').toBeLessThanOrEqual(0.75);
+    expect(highStakes.winRate, 'High Stakes skilled win rate').toBeGreaterThanOrEqual(0.25);
+    expect(highStakes.winRate, 'High Stakes skilled win rate').toBeLessThanOrEqual(0.4);
+    expect(naiveMarket.winRate, 'Market naive win rate').toBeLessThan(0.15);
   }, 120_000);
 
   it('rewards discards and Tycoon hires over naive play', () => {

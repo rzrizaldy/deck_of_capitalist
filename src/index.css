@@ -366,6 +366,18 @@ button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
 .market-target .progress-rail { width: 100%; }
 .market-target small { color: rgba(240, 229, 189, .92); font: calc(11.6 * var(--u)) 'DM Mono', monospace; }
 
+.market-modifier, .modifier-brief {
+  display: flex; align-items: center; gap: calc(6 * var(--u));
+  padding: calc(4 * var(--u)) calc(7 * var(--u));
+  border: 1px solid rgba(110, 217, 204, .34); border-radius: calc(8 * var(--u));
+  background: rgba(4, 22, 25, .78); color: #d4e5df;
+}
+.market-modifier { position: relative; z-index: 1; width: min(calc(420 * var(--u)), 88%); }
+.market-modifier img, .modifier-brief img { width: calc(42 * var(--u)); height: calc(35 * var(--u)); object-fit: cover; border: 1px solid rgba(241, 200, 76, .42); border-radius: calc(4 * var(--u)); image-rendering: pixelated; }
+.market-modifier span, .modifier-brief span { display: grid; gap: calc(1.5 * var(--u)); font-size: calc(9.5 * var(--u)); line-height: 1.2; }
+.market-modifier b, .modifier-brief b { color: #f4d37d; font: 700 calc(9.4 * var(--u)) 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+.modifier-brief { margin: calc(6 * var(--u)) auto; width: min(calc(395 * var(--u)), 100%); text-align: left; }
+
 .tycoon-shelf {
   position: relative; z-index: 1; width: min(calc(545 * var(--u)), 92%);
   padding: calc(2.5 * var(--u)) calc(9.4 * var(--u)) calc(3 * var(--u));

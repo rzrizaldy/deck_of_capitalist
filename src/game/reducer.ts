@@ -1,6 +1,6 @@
 import {
-  awardRound, createPlayer, deckSize, discardCards, emptyState, generateShop,
-  makeCard, playCards, priceFor, replaceCard, resetForRound, marketTarget, MAX_ROUNDS, MIN_DECK_SIZE,
+  allCards, awardRound, chooseMarketModifier, createPlayer, deckSize, discardCards, emptyState, generateShop,
+  makeCard, playCards, prepareMarket, priceFor, replaceCard, marketTarget, MAX_ROUNDS, MAX_TYCOONS, MIN_DECK_SIZE,
 } from './engine';
 import type { GameAction, GameEvent, GameState } from './types';
 
@@ -16,6 +16,8 @@ export function createRun(
   companion: GameState['companion'] = 'gemoy',
 ): GameState {
   const player = createPlayer('player', seed);
+  const market = chooseMarketModifier(player.rngState);
+  const prepared = prepareMarket(player.side, market.rngState, market.modifier);
   return {
     version: 2,
     phase: 'playing',
@@ -23,11 +25,13 @@ export function createRun(
     companion,
     round: 1,
     seed,
-    rngState: player.rngState,
-    player: player.side,
+    rngState: prepared.rngState,
+    player: prepared.side,
+    modifier: market.modifier,
+    marketExile: prepared.exiled,
     selectedIds: [],
     shop: null,
-    events: [{ id: 'opening', actor: 'system', message: `${difficulty === 'trader' ? 'Market' : difficulty === 'casual' ? 'Street' : 'High Stakes'} 1 opens. Reach ${marketTarget(1, difficulty).toLocaleString()} in four hands.` }],
+    events: [{ id: 'opening', actor: 'system', message: `${market.modifier.name}: ${market.modifier.summary} Reach ${marketTarget(1, difficulty, market.modifier).toLocaleString()} in four hands.` }],
     lastPlayerScore: null,
     lastPlayedCards: [],
     muted,
@@ -40,7 +44,7 @@ const RESHUFFLE_NOTE = 'Your discard pile was reshuffled back into the deck.';
 
 function completeRound(state: GameState, playerScore: GameState['lastPlayerScore']): GameState {
   const runScore = state.runScore + state.player.score;
-  const target = marketTarget(state.round, state.difficulty);
+  const target = marketTarget(state.round, state.difficulty, state.modifier);
   if (state.player.score < target) {
     return {
       ...state, phase: 'gameover', runScore, lastPlayerScore: playerScore,
@@ -75,6 +79,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...action.state,
         difficulty: action.state.difficulty ?? 'trader',
         companion: action.state.companion ?? 'gemoy',
+        modifier: action.state.modifier ?? emptyState().modifier,
+        marketExile: action.state.marketExile ?? [],
         selectedIds: [],
         lastPlayedCards: action.state.lastPlayedCards ?? [],
         reshuffles: action.state.reshuffles ?? 0,
@@ -104,7 +110,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'PLAYER_PLAY': {
       if (state.phase !== 'playing' || state.selectedIds.length === 0 || state.player.handsLeft < 1) return state;
       try {
-        const playerResult = playCards(state.player, state.selectedIds, state.rngState);
+        const playerResult = playCards(state.player, state.selectedIds, state.rngState, { modifier: state.modifier });
         const message = `You scored ${playerResult.score.total.toLocaleString()} with ${playerResult.score.handName}.`;
         const interim: GameState = {
           ...state,
@@ -121,7 +127,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       } catch { return state; }
     }
     case 'BUY_TYCOON': {
-      if (state.phase !== 'shop' || !state.shop || state.player.tycoons.length >= 5) return state;
+      if (state.phase !== 'shop' || !state.shop || state.player.tycoons.length >= MAX_TYCOONS) return state;
       const tycoon = state.shop.tycoons.find((item) => item.id === action.tycoonId);
       if (!tycoon || state.player.tycoons.some((item) => item.id === tycoon.id)) return state;
       const price = priceFor(state.player, tycoon.cost);
@@ -136,22 +142,27 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.phase !== 'shop' || !state.shop) return state;
       const price = priceFor(state.player, 4 + Math.floor(state.shop.acquisition.chips / 15));
       if (state.player.cash < price) return state;
-      const card = makeCard(state.shop.acquisition, `player-market-${state.round}-${state.rngState}`);
+      // Contracts arrive already improved, so adding one is a deliberate power
+      // spike rather than a strictly worse, deck-diluting vanilla draw.
+      const card = { ...makeCard(state.shop.acquisition, `player-market-${state.round}-${state.rngState}`), bonus: 8 };
       return {
         ...state,
         player: { ...state.player, cash: state.player.cash - price, discardPile: [...state.player.discardPile, card] },
-        events: event(state, 'player', `You acquired ${card.name} for $${price}.`),
+        events: event(state, 'player', `You acquired an upgraded ${card.name} (+8 chips) for $${price}.`),
       };
     }
     case 'RENOVATE': {
-      if (state.phase !== 'shop' || !state.shop || state.shop.renovated) return state;
-      const price = priceFor(state.player, 4);
+      if (state.phase !== 'shop' || !state.shop) return state;
+      const price = priceFor(state.player, 4 * (1 + state.shop.renovations));
       if (state.player.cash < price) return state;
+      const target = allCards(state.player).find((card) => card.instanceId === action.cardId);
+      if (!target) return state;
+      const gain = 5 + Math.floor(target.bonus / 5);
       return {
         ...state,
-        player: { ...replaceCard(state.player, action.cardId, (card) => ({ ...card, bonus: card.bonus + 5 })), cash: state.player.cash - price },
-        shop: { ...state.shop, renovated: true },
-        events: event(state, 'player', `Renovation complete: +5 permanent chips for $${price}.`),
+        player: { ...replaceCard(state.player, action.cardId, (card) => ({ ...card, bonus: card.bonus + gain })), cash: state.player.cash - price },
+        shop: { ...state.shop, renovations: state.shop.renovations + 1 },
+        events: event(state, 'player', `Renovation complete: +${gain} permanent chips for $${price}.`),
       };
     }
     case 'LIQUIDATE': {
@@ -177,11 +188,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case 'NEXT_ROUND': {
       if (state.phase !== 'shop' || !state.shop) return state;
-      const playerReset = resetForRound(state.player, state.rngState);
+      const market = chooseMarketModifier(state.rngState);
+      const playerReset = prepareMarket(state.player, market.rngState, market.modifier, state.marketExile);
       return {
         ...state, phase: 'playing', round: state.round + 1, player: playerReset.side,
-        rngState: playerReset.rngState, shop: null, selectedIds: [], lastPlayerScore: null, lastPlayedCards: [],
-        events: [{ id: `round-${state.round + 1}`, actor: 'system', message: `Market ${state.round + 1}: reach ${marketTarget(state.round + 1, state.difficulty).toLocaleString()}.` }],
+        rngState: playerReset.rngState, modifier: market.modifier, marketExile: playerReset.exiled,
+        shop: null, selectedIds: [], lastPlayerScore: null, lastPlayedCards: [],
+        events: [{ id: `round-${state.round + 1}`, actor: 'system', message: `${market.modifier.name}: ${market.modifier.summary} Reach ${marketTarget(state.round + 1, state.difficulty, market.modifier).toLocaleString()}.` }],
       };
     }
     default:

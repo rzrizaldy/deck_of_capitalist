@@ -1,4 +1,4 @@
-import type { CardTemplate, GroupKey, HandKey, Tycoon } from './types';
+import type { CardTemplate, GroupKey, HandKey, MarketModifier, Tycoon } from './types';
 
 export const GROUPS: Record<GroupKey, { label: string; setSize: number; color: string; ink: string }> = {
   BROWN: { label: 'Regional', setSize: 2, color: '#8b5a2b', ink: '#fff5df' },
@@ -17,11 +17,22 @@ export const HANDS: Record<HandKey, { name: string; multiplier: number; descript
   LIQUIDATION: { name: 'Liquidation', multiplier: 1, description: 'No matching asset group.' },
   DEVELOPMENT: { name: 'Development', multiplier: 2, description: 'One incomplete pair.' },
   JOINT_VENTURE: { name: 'Joint Venture', multiplier: 3, description: 'Two separate pairs.' },
-  MONOPOLY: { name: 'Monopoly', multiplier: 5, description: 'One completed asset group.' },
+  TAKEOVER: { name: 'Takeover', multiplier: 5, description: 'One completed asset group.' },
   CONGLOMERATE: { name: 'Conglomerate', multiplier: 7, description: 'A complete group plus another pair.' },
   DIVERSIFIED: { name: 'Diversified Portfolio', multiplier: 8, description: 'Five cards from five groups.' },
   TRANSPORT: { name: 'Transport Network', multiplier: 12, description: 'Four distinct railroads.' },
 };
+
+/** Market events are public constraints, not surprise punishments. */
+export const MARKET_MODIFIERS: MarketModifier[] = [
+  { id: 'BANJIR', name: 'Banjir', summary: 'Regional and Heritage deeds score 0 this market.', art: 'banjir' },
+  { id: 'MACET', name: 'Macet', summary: 'Transit deeds score half chips this market.', art: 'macet' },
+  { id: 'MATI_LAMPU', name: 'Mati Lampu', summary: 'Utility deeds score 0 this market.', art: 'mati-lampu' },
+  { id: 'GANJIL_GENAP', name: 'Ganjil-Genap', summary: 'Only odd-chip deeds score this market.', art: 'ganjil-genap', parity: 'odd' },
+  { id: 'SIDAK', name: 'Sidak', summary: 'Tycoon effects are disabled this market.', art: 'sidak' },
+  { id: 'MUSIM_KAWIN', name: 'Musim Kawin', summary: 'Lifestyle chips double; all other deed chips are −20%.', art: 'musim-kawin' },
+  { id: 'REKLAMASI', name: 'Reklamasi', summary: 'Three random deeds are removed for this market only.', art: 'reklamasi' },
+];
 
 export const CARD_TEMPLATES: CardTemplate[] = [
   { id: 'medan', name: 'Medan', chips: 5, group: 'BROWN' },
@@ -60,15 +71,42 @@ export const CARD_TEMPLATES: CardTemplate[] = [
 
 export const STARTING_DUPLICATES = ['medan', 'palembang', 'bandung', 'bogor', 'semarang', 'yogyakarta', 'solo', 'pln'];
 
-export const TYCOONS: Tycoon[] = [
-  { id: 'red-baron', name: 'Red Baron', description: '+15 chips for each Industrial deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'RED', amount: 15 } },
-  { id: 'rail-magnate', name: 'Rail Magnate', description: '+2 multiplier for each Transit card.', cost: 8, effect: { kind: 'mult_per_group', group: 'RAILROAD', amount: 2 } },
-  { id: 'lone-wolf', name: 'Lone Wolf', description: '×2 multiplier on a one-card play.', cost: 6, effect: { kind: 'xmult_hand_size', size: 1, amount: 2 } },
-  { id: 'diversifier', name: 'Diversifier', description: '+60 chips on Diversified Portfolio.', cost: 7, effect: { kind: 'chips_for_hand', hand: 'DIVERSIFIED', amount: 60 } },
-  { id: 'blue-chip', name: 'Blue Chip', description: '+5 multiplier for each Elite deed.', cost: 9, effect: { kind: 'mult_per_group', group: 'BLUE', amount: 5 } },
-  { id: 'power-player', name: 'Power Player', description: '×1.25 multiplier per Utility.', cost: 7, effect: { kind: 'xmult_per_group', group: 'UTILITY', amount: 1.25 } },
-  { id: 'banker', name: 'The Banker', description: 'Raises the interest cap to $10.', cost: 5, effect: { kind: 'interest_cap', amount: 10 } },
-  { id: 'insider', name: 'The Insider', description: 'All market prices are 20% lower.', cost: 7, effect: { kind: 'shop_discount', amount: 0.8 } },
-  { id: 'heritage-trust', name: 'Heritage Trust', description: '+12 chips for each Heritage deed.', cost: 5, effect: { kind: 'chips_per_group', group: 'PINK', amount: 12 } },
-  { id: 'green-corridor', name: 'Green Corridor', description: '+3 multiplier for each Golden Triangle deed.', cost: 8, effect: { kind: 'mult_per_group', group: 'GREEN', amount: 3 } },
+const TYCOON_ROSTER: Tycoon[] = [
+  { id: 'pak-notaris', name: 'Pak Notaris', description: '×1.5 multiplier. The paperwork always clears.', cost: 8, effect: { kind: 'xmult_flat', amount: 1.5 } },
+  { id: 'makelar-tanah', artId: 'red-baron', name: 'Makelar Tanah', description: '+3 multiplier for each Regional deed.', cost: 5, effect: { kind: 'mult_per_group', group: 'BROWN', amount: 3 } },
+  { id: 'oknum', artId: 'insider', name: 'Oknum', description: '×1.35 multiplier. The inspection looks away.', cost: 9, effect: { kind: 'xmult_flat', amount: 1.35 } },
+  { id: 'anak-pejabat', artId: 'banker', name: 'Anak Pejabat', description: 'All Night Market prices are 40% lower.', cost: 7, effect: { kind: 'shop_discount', amount: 0.6 } },
+  { id: 'bos-proyek', artId: 'power-player', name: 'Bos Proyek', description: '+25 chips for each Industrial deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'RED', amount: 25 } },
+  { id: 'juragan-kos', artId: 'heritage-trust', name: 'Juragan Kos', description: '+20 chips for each Heritage deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'PINK', amount: 20 } },
+  { id: 'sultan-andara', artId: 'blue-chip', name: 'Sultan Andara', description: '×2 multiplier when an Elite deed joins the play.', cost: 10, effect: { kind: 'xmult_per_group', group: 'BLUE', amount: 2 } },
+  { id: 'tukang-palak', artId: 'lone-wolf', name: 'Tukang Palak', description: '+4 multiplier for each Lifestyle deed.', cost: 6, effect: { kind: 'mult_per_group', group: 'YELLOW', amount: 4 } },
+  { id: 'pak-rt', artId: 'green-corridor', name: 'Pak RT', description: 'Raises the interest cap to $10.', cost: 5, effect: { kind: 'interest_cap', amount: 10 } },
+  { id: 'investor-bodong', artId: 'diversifier', name: 'Investor Bodong', description: '×2.25 on a Diversified Portfolio. Trust the brochure.', cost: 8, effect: { kind: 'xmult_per_hand', hand: 'DIVERSIFIED', amount: 2.25 } },
+  { id: 'raja-kavling', artId: 'red-baron', name: 'Raja Kavling', description: '×1.35 multiplier for each Regional deed.', cost: 8, effect: { kind: 'xmult_per_group', group: 'BROWN', amount: 1.35 } },
+  { id: 'ibu-ibu-arisan', artId: 'heritage-trust', name: 'Ibu-Ibu Arisan', description: '+70 chips on a Development.', cost: 5, effect: { kind: 'chips_for_hand', hand: 'DEVELOPMENT', amount: 70 } },
+  { id: 'mafia-parkir', artId: 'lone-wolf', name: 'Mafia Parkir', description: '×1.8 multiplier on a one-card play.', cost: 5, effect: { kind: 'xmult_hand_size', size: 1, amount: 1.8 } },
+  { id: 'bandar-tol', artId: 'rail-magnate', name: 'Bandar Tol', description: '+3 multiplier for each Transit deed.', cost: 7, effect: { kind: 'mult_per_group', group: 'RAILROAD', amount: 3 } },
+  { id: 'pengusaha-kafe', artId: 'green-corridor', name: 'Pengusaha Kafe', description: '+22 chips for each Lifestyle deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'YELLOW', amount: 22 } },
+  { id: 'penguasa-sudirman', artId: 'green-corridor', name: 'Penguasa Sudirman', description: '+4 multiplier for each Golden Triangle deed.', cost: 7, effect: { kind: 'mult_per_group', group: 'GREEN', amount: 4 } },
+  { id: 'tuan-tanah', artId: 'blue-chip', name: 'Tuan Tanah', description: '×2 multiplier on a Takeover.', cost: 9, effect: { kind: 'xmult_per_hand', hand: 'TAKEOVER', amount: 2 } },
+  { id: 'pialang-saham', artId: 'banker', name: 'Pialang Saham', description: '×1.6 multiplier. Everything is priced in.', cost: 8, effect: { kind: 'xmult_flat', amount: 1.6 } },
+  { id: 'bos-pelabuhan', artId: 'rail-magnate', name: 'Bos Pelabuhan', description: '+30 chips for each Transit deed.', cost: 7, effect: { kind: 'chips_per_group', group: 'RAILROAD', amount: 30 } },
+  { id: 'sultan-kontainer', artId: 'power-player', name: 'Sultan Kontainer', description: '+45 chips for each Utility deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'UTILITY', amount: 45 } },
+  { id: 'ibu-cosplay', artId: 'diversifier', name: 'Ibu Cosplay', description: '×1.9 multiplier on a Conglomerate.', cost: 8, effect: { kind: 'xmult_per_hand', hand: 'CONGLOMERATE', amount: 1.9 } },
+  { id: 'raja-petak', artId: 'red-baron', name: 'Raja Petak', description: '+90 chips on a Joint Venture.', cost: 6, effect: { kind: 'chips_for_hand', hand: 'JOINT_VENTURE', amount: 90 } },
+  { id: 'kolektor-ruko', artId: 'blue-chip', name: 'Kolektor Ruko', description: '×1.5 multiplier for each Elite deed.', cost: 9, effect: { kind: 'xmult_per_group', group: 'BLUE', amount: 1.5 } },
+  { id: 'juragan-bali', artId: 'green-corridor', name: 'Juragan Bali', description: '+24 chips for each Tourism deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'ORANGE', amount: 24 } },
 ];
+
+/**
+ * A contract is always a meaningful investment. Conditional effects form the
+ * build; the visible core multiplier makes buying into it compound over a run.
+ */
+const TYCOON_CORE_MULTIPLIER = 1.39;
+
+export const TYCOONS: Tycoon[] = TYCOON_ROSTER.map((tycoon) => ({
+  ...tycoon,
+  cost: Math.max(3, Math.floor(tycoon.cost * 0.6)),
+  xmult: tycoon.xmult ?? TYCOON_CORE_MULTIPLIER,
+  description: `${tycoon.description} Core ×${TYCOON_CORE_MULTIPLIER}.`,
+}));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CARD_TEMPLATES, TYCOONS } from '../src/game/data';
-import { createStartingDeck, drawToHand, identifyHand, marketTarget, scoreHand } from '../src/game/engine';
+import { CARD_TEMPLATES, MARKET_MODIFIERS, TYCOONS } from '../src/game/data';
+import { createStartingDeck, drawToHand, identifyHand, marketTarget, prepareMarket, scoreHand } from '../src/game/engine';
 import type { Card, PlayerState, GroupKey } from '../src/game/types';
 
 let id = 0;
@@ -10,9 +10,9 @@ const card = (group: GroupKey, templateId = `${group.toLowerCase()}-${id}`): Car
 
 describe('authoritative scoring engine', () => {
   it('scales published market targets by difficulty only', () => {
-    expect(marketTarget(1, 'casual')).toBe(210);
-    expect(marketTarget(1, 'trader')).toBe(260);
-    expect(marketTarget(1, 'tycoon')).toBe(330);
+    expect(marketTarget(1, 'casual')).toBe(2100);
+    expect(marketTarget(1, 'trader')).toBe(2800);
+    expect(marketTarget(1, 'tycoon')).toBe(7000);
     expect(marketTarget(8, 'casual')).toBeLessThan(marketTarget(8, 'trader'));
     expect(marketTarget(8, 'trader')).toBeLessThan(marketTarget(8, 'tycoon'));
   });
@@ -31,7 +31,7 @@ describe('authoritative scoring engine', () => {
     [[card('BROWN')], 'LIQUIDATION'],
     [[card('SKY'), card('SKY')], 'DEVELOPMENT'],
     [[card('SKY'), card('SKY'), card('RED'), card('RED')], 'JOINT_VENTURE'],
-    [[card('RED'), card('RED'), card('RED')], 'MONOPOLY'],
+    [[card('RED'), card('RED'), card('RED')], 'TAKEOVER'],
     [[card('RED'), card('RED'), card('RED'), card('GREEN'), card('GREEN')], 'CONGLOMERATE'],
     [[card('BROWN'), card('SKY'), card('PINK'), card('ORANGE'), card('RED')], 'DIVERSIFIED'],
     [[card('RAILROAD', 'r1'), card('RAILROAD', 'r2'), card('RAILROAD', 'r3'), card('RAILROAD', 'r4')], 'TRANSPORT'],
@@ -41,21 +41,47 @@ describe('authoritative scoring engine', () => {
 
   it('requires distinct railroads for a Transport Network', () => {
     const cards = [card('RAILROAD', 'same'), card('RAILROAD', 'same'), card('RAILROAD', 'r2'), card('RAILROAD', 'r3')];
-    expect(identifyHand(cards)).toBe('MONOPOLY');
+    expect(identifyHand(cards)).toBe('TAKEOVER');
   });
 
   it('applies chip, additive multiplier, then multiplicative effects', () => {
     const cards = [card('RED'), card('RED'), card('RED')];
-    const red = TYCOONS.find((item) => item.id === 'red-baron')!;
-    const lone = TYCOONS.find((item) => item.id === 'lone-wolf')!;
-    const base = scoreHand(cards, [red, lone]);
+    const project = TYCOONS.find((item) => item.id === 'bos-proyek')!;
+    const flat = TYCOONS.find((item) => item.id === 'pak-notaris')!;
+    const base = scoreHand(cards, [project, flat]);
     expect(base.cardChips).toBe(30);
-    expect(base.bonusChips).toBe(45);
+    expect(base.bonusChips).toBe(75);
     expect(base.baseMultiplier).toBe(5);
-    expect(base.total).toBe(375);
-    const solo = scoreHand([card('BLUE')], [lone]);
-    expect(solo.total).toBe(20);
-    expect(solo.multiplicative).toBe(2);
+    expect(base.total).toBe(1521);
+    const diversified = scoreHand([card('BLUE'), card('RED'), card('SKY'), card('PINK'), card('ORANGE')], [TYCOONS.find((item) => item.id === 'investor-bodong')!]);
+    expect(diversified.multiplicative).toBeCloseTo(3.1275);
+  });
+
+  it('applies a public market modifier before Tycoon scoring', () => {
+    const flood = MARKET_MODIFIERS.find((modifier) => modifier.id === 'BANJIR')!;
+    const sidak = MARKET_MODIFIERS.find((modifier) => modifier.id === 'SIDAK')!;
+    const regional = [card('BROWN'), card('BROWN')];
+    expect(scoreHand(regional, [], { modifier: flood }).cardChips).toBe(0);
+    const notaris = TYCOONS.find((tycoon) => tycoon.id === 'pak-notaris')!;
+    const withTycoon = scoreHand([card('BLUE')], [notaris]);
+    const inspected = scoreHand([card('BLUE')], [notaris], { modifier: sidak });
+    expect(inspected.multiplicative).toBe(1);
+    expect(inspected.total).toBeLessThan(withTycoon.total);
+  });
+
+  it('exiles exactly three cards for Reklamasi and restores prior exiles before the next market', () => {
+    const reclamation = MARKET_MODIFIERS.find((modifier) => modifier.id === 'REKLAMASI')!;
+    const normal = MARKET_MODIFIERS.find((modifier) => modifier.id === 'MACET')!;
+    const side: PlayerState = {
+      hand: [], drawPile: createStartingDeck('reclaim'), discardPile: [],
+      score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3,
+    };
+    const reclaimed = prepareMarket(side, 42, reclamation);
+    expect(reclaimed.exiled).toHaveLength(3);
+    expect(reclaimed.side.hand.length + reclaimed.side.drawPile.length + reclaimed.exiled.length).toBe(40);
+    const restored = prepareMarket(reclaimed.side, reclaimed.rngState, normal, reclaimed.exiled);
+    expect(restored.exiled).toHaveLength(0);
+    expect(restored.side.hand.length + restored.side.drawPile.length).toBe(40);
   });
 
   it('reshuffles the discard pile when the draw pile is empty and reports it', () => {

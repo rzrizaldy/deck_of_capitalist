@@ -152,7 +152,7 @@ test('the deed rack picks a card and drives both deck services', async ({ page }
   await expect(page.locator('.deed-action').first()).toContainText(name);
 
   await page.getByRole('button', { name: /^Renovate ·/i }).click();
-  await expect(page.getByRole('button', { name: /Renovated/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Renovate · \$8/i })).toBeVisible();
   await page.getByRole('button', { name: /Liquidate/i }).click();
   await expect(page.getByRole('button', { name: /Liquidated/i })).toBeVisible();
 });

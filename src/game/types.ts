@@ -5,6 +5,19 @@ export type GroupKey =
   | 'BROWN' | 'SKY' | 'PINK' | 'ORANGE' | 'RED'
   | 'YELLOW' | 'GREEN' | 'BLUE' | 'RAILROAD' | 'UTILITY';
 
+export type MarketModifierId =
+  | 'BANJIR' | 'MACET' | 'MATI_LAMPU' | 'GANJIL_GENAP'
+  | 'SIDAK' | 'MUSIM_KAWIN' | 'REKLAMASI';
+
+export interface MarketModifier {
+  id: MarketModifierId;
+  name: string;
+  summary: string;
+  art: string;
+  /** Ganjil-Genap is deliberately public before the player chooses a hand. */
+  parity?: 'odd' | 'even';
+}
+
 export interface CardTemplate {
   id: string;
   name: string;
@@ -21,6 +34,8 @@ export type TycoonEffect =
   | { kind: 'chips_per_group'; group: GroupKey; amount: number }
   | { kind: 'mult_per_group'; group: GroupKey; amount: number }
   | { kind: 'xmult_per_group'; group: GroupKey; amount: number }
+  | { kind: 'xmult_flat'; amount: number }
+  | { kind: 'xmult_per_hand'; hand: HandKey; amount: number }
   | { kind: 'xmult_hand_size'; size: number; amount: number }
   | { kind: 'chips_for_hand'; hand: HandKey; amount: number }
   | { kind: 'interest_cap'; amount: number }
@@ -28,15 +43,19 @@ export type TycoonEffect =
 
 export interface Tycoon {
   id: string;
+  /** Allows new local writing to reuse an already-commissioned portrait safely. */
+  artId?: string;
   name: string;
   description: string;
   cost: number;
   effect: TycoonEffect;
+  /** Every helper contributes a small, visible compounding core to a build. */
+  xmult?: number;
 }
 
 export type HandKey =
   | 'LIQUIDATION' | 'DEVELOPMENT' | 'JOINT_VENTURE'
-  | 'MONOPOLY' | 'CONGLOMERATE' | 'DIVERSIFIED' | 'TRANSPORT';
+  | 'TAKEOVER' | 'CONGLOMERATE' | 'DIVERSIFIED' | 'TRANSPORT';
 
 export interface ScoreBreakdown {
   hand: HandKey;
@@ -48,6 +67,10 @@ export interface ScoreBreakdown {
   multiplicative: number;
   total: number;
   notes: string[];
+}
+
+export interface ScoreContext {
+  modifier?: MarketModifier;
 }
 
 export interface PlayerState {
@@ -65,7 +88,7 @@ export interface ShopState {
   tycoons: Tycoon[];
   acquisition: CardTemplate;
   rerollCost: number;
-  renovated: boolean;
+  renovations: number;
   liquidated: boolean;
 }
 
@@ -81,6 +104,9 @@ export interface GameState {
   difficulty: Difficulty;
   companion: CompanionId;
   round: number;
+  modifier: MarketModifier;
+  /** Cards removed only for the active Reklamasi market and restored after it. */
+  marketExile: Card[];
   seed: number;
   rngState: number;
   player: PlayerState;

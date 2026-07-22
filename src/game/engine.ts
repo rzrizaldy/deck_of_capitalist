@@ -1,25 +1,49 @@
-import { CARD_TEMPLATES, GROUPS, HANDS, STARTING_DUPLICATES, TYCOONS } from './data';
+import { CARD_TEMPLATES, GROUPS, HANDS, MARKET_MODIFIERS, STARTING_DUPLICATES, TYCOONS } from './data';
 import { pick, shuffle } from './rng';
 import type {
   Card, CardTemplate, PlayerState, Difficulty, GameState, GroupKey, HandKey,
-  ScoreBreakdown, ShopState, Tycoon,
+  MarketModifier, ScoreBreakdown, ScoreContext, ShopState, Tycoon,
 } from './types';
 
 const HAND_SIZE = 8;
 export const MAX_HANDS = 4;
 export const MAX_DISCARDS = 3;
 export const MAX_ROUNDS = 8;
+export const MAX_TYCOONS = 7;
 export const MIN_DECK_SIZE = 32;
-export const MARKET_TARGETS = [260, 420, 620, 880, 1180, 1540, 1980, 2520] as const;
+export const MARKET_TARGETS = [2800, 3900, 5400, 7400, 10200, 14000, 19300, 26700] as const;
 export const MARKET_DIFFICULTY: Record<Difficulty, { label: string; description: string; targetFactor: number }> = {
-  casual: { label: 'Street', description: '80% published targets', targetFactor: 0.8 },
+  casual: { label: 'Street', description: '75% published targets', targetFactor: 0.75 },
   trader: { label: 'Market', description: 'Published targets', targetFactor: 1 },
-  tycoon: { label: 'High Stakes', description: '125% published targets', targetFactor: 1.25 },
+  tycoon: { label: 'High Stakes', description: '250% published targets', targetFactor: 2.5 },
 };
 
-export function marketTarget(round: number, difficulty: Difficulty = 'trader'): number {
+const MODIFIER_TARGET_FACTOR: Record<MarketModifier['id'], number> = {
+  BANJIR: 0.25,
+  MACET: 0.45,
+  MATI_LAMPU: 0.35,
+  GANJIL_GENAP: 0.25,
+  SIDAK: 0.35,
+  MUSIM_KAWIN: 0.55,
+  REKLAMASI: 0.45,
+};
+
+/** A public disruptive market lowers its target so it is a puzzle, not a wall. */
+export function marketTarget(round: number, difficulty: Difficulty = 'trader', modifier?: MarketModifier): number {
   const baseline = MARKET_TARGETS[Math.min(Math.max(round, 1), MAX_ROUNDS) - 1];
-  return Math.round((baseline * MARKET_DIFFICULTY[difficulty].targetFactor) / 10) * 10;
+  const targetFactor = MARKET_DIFFICULTY[difficulty].targetFactor * (modifier ? MODIFIER_TARGET_FACTOR[modifier.id] : 1);
+  return Math.round((baseline * targetFactor) / 10) * 10;
+}
+
+/** Deterministic and public: the player always sees this before committing. */
+export function chooseMarketModifier(rngState: number): { modifier: MarketModifier; rngState: number } {
+  const picked = pick(MARKET_MODIFIERS, rngState);
+  // Ganjil-Genap alternates its permitted parity from the seeded cursor.
+  const modifier = picked.item.id === 'GANJIL_GENAP'
+    ? { ...picked.item, parity: picked.state % 2 === 0 ? 'even' as const : 'odd' as const,
+      summary: `Only ${(picked.state % 2 === 0 ? 'even' : 'odd')}-chip deeds score this market.` }
+    : picked.item;
+  return { modifier, rngState: picked.state };
 }
 
 export interface DrawResult {
@@ -98,14 +122,25 @@ export function identifyHand(cards: Card[]): HandKey {
   const hasSeparatePair = completed.some(([completeGroup]) =>
     entries.some(([group, count]) => group !== completeGroup && count >= 2));
   if (completed.length > 0 && hasSeparatePair) return 'CONGLOMERATE';
-  if (completed.length > 0) return 'MONOPOLY';
+  if (completed.length > 0) return 'TAKEOVER';
   const pairs = entries.filter(([, count]) => count >= 2).length;
   if (pairs >= 2) return 'JOINT_VENTURE';
   if (pairs === 1) return 'DEVELOPMENT';
   return 'LIQUIDATION';
 }
 
-export function scoreHand(cards: Card[], tycoons: Tycoon[]): ScoreBreakdown {
+function chipsForMarket(card: Card, modifier?: MarketModifier): number {
+  const chips = card.chips + card.bonus;
+  if (!modifier) return chips;
+  if (modifier.id === 'BANJIR' && (card.group === 'BROWN' || card.group === 'PINK')) return 0;
+  if (modifier.id === 'MACET' && card.group === 'RAILROAD') return Math.floor(chips / 2);
+  if (modifier.id === 'MATI_LAMPU' && card.group === 'UTILITY') return 0;
+  if (modifier.id === 'GANJIL_GENAP' && chips % 2 !== (modifier.parity === 'odd' ? 1 : 0)) return 0;
+  if (modifier.id === 'MUSIM_KAWIN') return card.group === 'YELLOW' ? chips * 2 : Math.floor(chips * 0.8);
+  return chips;
+}
+
+export function scoreHand(cards: Card[], tycoons: Tycoon[], context: ScoreContext = {}): ScoreBreakdown {
   if (cards.length === 0) {
     return {
       hand: 'LIQUIDATION', handName: 'Empty', cardChips: 0, bonusChips: 0,
@@ -113,13 +148,18 @@ export function scoreHand(cards: Card[], tycoons: Tycoon[]): ScoreBreakdown {
     };
   }
   const hand = identifyHand(cards);
-  const cardChips = cards.reduce((sum, card) => sum + card.chips + card.bonus, 0);
+  const modifier = context.modifier;
+  const cardChips = cards.reduce((sum, card) => sum + chipsForMarket(card, modifier), 0);
   let bonusChips = 0;
   let bonusMultiplier = 0;
   let multiplicative = 1;
   const notes: string[] = [];
 
-  tycoons.forEach((tycoon) => {
+  if (modifier && cardChips !== cards.reduce((sum, card) => sum + card.chips + card.bonus, 0)) {
+    notes.push(`${modifier.name} changes this play's deed chips`);
+  }
+  if (modifier?.id === 'SIDAK') notes.push('Sidak disables all Tycoon effects');
+  (modifier?.id === 'SIDAK' ? [] : tycoons).forEach((tycoon) => {
     const effect = tycoon.effect;
     if (effect.kind === 'chips_per_group') {
       const count = cards.filter((card) => card.group === effect.group).length;
@@ -133,9 +173,19 @@ export function scoreHand(cards: Card[], tycoons: Tycoon[]): ScoreBreakdown {
     } else if (effect.kind === 'xmult_hand_size' && cards.length === effect.size) {
       multiplicative *= effect.amount;
       notes.push(`${tycoon.name} ×${effect.amount}`);
+    } else if (effect.kind === 'xmult_flat') {
+      multiplicative *= effect.amount;
+      notes.push(`${tycoon.name} ×${effect.amount}`);
+    } else if (effect.kind === 'xmult_per_hand' && hand === effect.hand) {
+      multiplicative *= effect.amount;
+      notes.push(`${tycoon.name} ×${effect.amount}`);
     } else if (effect.kind === 'chips_for_hand' && hand === effect.hand) {
       bonusChips += effect.amount;
       notes.push(`${tycoon.name} +${effect.amount} chips`);
+    }
+    if (tycoon.xmult) {
+      multiplicative *= tycoon.xmult;
+      notes.push(`${tycoon.name} core ×${tycoon.xmult}`);
     }
   });
 
@@ -147,10 +197,10 @@ export function scoreHand(cards: Card[], tycoons: Tycoon[]): ScoreBreakdown {
   };
 }
 
-export function playCards(side: PlayerState, cardIds: string[], rngState: number): DrawResult & { score: ScoreBreakdown } {
+export function playCards(side: PlayerState, cardIds: string[], rngState: number, context: ScoreContext = {}): DrawResult & { score: ScoreBreakdown } {
   const chosen = side.hand.filter((card) => cardIds.includes(card.instanceId));
   if (chosen.length < 1 || chosen.length > 5 || side.handsLeft < 1) throw new Error('Illegal play');
-  const score = scoreHand(chosen, side.tycoons);
+  const score = scoreHand(chosen, side.tycoons, context);
   const next: PlayerState = {
     ...side,
     hand: side.hand.filter((card) => !cardIds.includes(card.instanceId)),
@@ -197,7 +247,7 @@ export function generateShop(owned: Tycoon[], rngState: number): { shop: ShopSta
   return {
     shop: {
       tycoons: mixed.items.slice(0, 3), acquisition: acquired.item,
-      rerollCost: 2, renovated: false, liquidated: false,
+      rerollCost: 2, renovations: 0, liquidated: false,
     },
     rngState: acquired.state,
   };
@@ -221,10 +271,24 @@ export function resetForRound(side: PlayerState, rngState: number): DrawResult {
   return drawToHand(reset, mixed.state);
 }
 
+/** Restores last market's exiles, then applies the next public market event. */
+export function prepareMarket(side: PlayerState, rngState: number, modifier: MarketModifier, restore: Card[] = []): DrawResult & { exiled: Card[] } {
+  const mixed = shuffle([...allCards(side), ...restore], rngState);
+  const exiled = modifier.id === 'REKLAMASI' ? mixed.items.slice(0, 3) : [];
+  const reset: PlayerState = {
+    ...side,
+    hand: [], discardPile: [], drawPile: modifier.id === 'REKLAMASI' ? mixed.items.slice(3) : mixed.items,
+    score: 0, handsLeft: MAX_HANDS, discardsLeft: MAX_DISCARDS,
+  };
+  const drawn = drawToHand(reset, mixed.state);
+  return { ...drawn, exiled };
+}
+
 export function emptyState(muted = false): GameState {
   const empty: PlayerState = { drawPile: [], discardPile: [], hand: [], score: 0, cash: 4, tycoons: [], handsLeft: 4, discardsLeft: 3 };
   return {
-    version: 2, phase: 'menu', difficulty: 'trader', companion: 'gemoy', round: 1, seed: 1, rngState: 1,
+    version: 2, phase: 'menu', difficulty: 'trader', companion: 'gemoy', round: 1,
+    modifier: MARKET_MODIFIERS[0], marketExile: [], seed: 1, rngState: 1,
     player: empty, selectedIds: [], shop: null, events: [],
     lastPlayerScore: null, lastPlayedCards: [], muted, runScore: 0, reshuffles: 0,
   };

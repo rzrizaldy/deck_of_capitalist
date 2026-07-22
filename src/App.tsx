@@ -8,7 +8,7 @@ import {
   startBgm, stopBgm, unlockAudio,
 } from './game/audio';
 import { CARD_TEMPLATES, GROUPS, HANDS } from './game/data';
-import { allCards, deckSize, MARKET_DIFFICULTY, marketTarget, MIN_DECK_SIZE, priceFor, scoreHand } from './game/engine';
+import { allCards, deckSize, MARKET_DIFFICULTY, marketTarget, MAX_TYCOONS, MIN_DECK_SIZE, priceFor, scoreHand } from './game/engine';
 import { clearSave, loadSave, migrateLegacySave, recordHighScore, saveGame } from './game/persistence';
 import { gameReducer, initialState } from './game/reducer';
 import type { Card, Difficulty, GameState, ScoreBreakdown, Tycoon } from './game/types';
@@ -236,7 +236,7 @@ function TycoonPreview({ tycoon, onClose }: { tycoon: Tycoon; onClose: () => voi
   return <div className="card-preview-backdrop" role="presentation" onMouseDown={onClose}>
     <section className="card-preview tycoon-preview" role="dialog" aria-modal="true" aria-label={`${tycoon.name} Tycoon card preview`} onMouseDown={(event) => event.stopPropagation()}>
       <button className="icon-button preview-close" onClick={onClose} aria-label="Close Tycoon preview"><X /></button>
-      <img src={`/assets/tycoons/${tycoon.id}.webp`} alt={`${tycoon.name} pixel-noir Tycoon artwork`} />
+      <img src={`/assets/tycoons/${tycoon.artId ?? tycoon.id}.webp`} alt={`${tycoon.name} pixel-noir Tycoon artwork`} />
       <div className="preview-vignette" />
       <div className="preview-details">
         <span><Crown /> Tycoon helper</span>
@@ -252,7 +252,7 @@ function TycoonCard({ tycoon, compact = false, bought = false, children, onInspe
   tycoon: Tycoon; compact?: boolean; bought?: boolean; children?: React.ReactNode; onInspect?: () => void;
 }) {
   const content = <>
-    <img src={`/assets/tycoons/${tycoon.id}.webp`} alt={`${tycoon.name} tycoon helper`} loading="lazy" />
+    <img src={`/assets/tycoons/${tycoon.artId ?? tycoon.id}.webp`} alt={`${tycoon.name} tycoon helper`} loading="lazy" />
     <div className="tycoon-card-copy">
       <span><Crown aria-hidden="true" /> Tycoon</span>
       <h3>{tycoon.name}</h3>
@@ -296,7 +296,7 @@ const HAND_RECIPES: Record<string, string[]> = {
   LIQUIDATION: ['BROWN', 'SKY', 'PINK'],
   DEVELOPMENT: ['SKY', 'SKY'],
   JOINT_VENTURE: ['BROWN', 'BROWN', 'PINK', 'PINK'],
-  MONOPOLY: ['BROWN', 'BROWN'],
+  TAKEOVER: ['BROWN', 'BROWN'],
   CONGLOMERATE: ['BROWN', 'BROWN', 'PINK', 'PINK'],
   DIVERSIFIED: ['BROWN', 'SKY', 'PINK', 'ORANGE', 'RED'],
   TRANSPORT: ['RAILROAD', 'RAILROAD', 'RAILROAD', 'RAILROAD'],
@@ -458,7 +458,7 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch }: {
 
 function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const [guide, setGuide] = useState(false);
-  const target = marketTarget(state.round, state.difficulty);
+  const target = marketTarget(state.round, state.difficulty, state.modifier);
   return (
     <>
       <header className="game-hud">
@@ -486,12 +486,16 @@ function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
 }
 
 function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
-  const target = money(marketTarget(1, state.difficulty));
+  const target = money(marketTarget(1, state.difficulty, state.modifier));
   const buddy = COMPANIONS[state.companion];
   return <main className="intro-screen game-frame">
     <div className="intro-panel">
       <span className="eyebrow">Market 1 · {MARKET_DIFFICULTY[state.difficulty].label} difficulty</span>
       <h1>Reach {target} in four hands.</h1>
+      <div className="modifier-brief" role="note">
+        <img src={`/assets/modifiers/${state.modifier.art}.webp`} alt="" />
+        <span><b>{state.modifier.name}</b>{state.modifier.summary}</span>
+      </div>
       {/* The first three things the player will actually touch, in order. The
           Night Market is deliberately left out — they meet it when they win. */}
       <ul className="intro-points">
@@ -510,7 +514,7 @@ function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
 function CompanionRail({ state }: { state: GameState }) {
   const buddy = COMPANIONS[state.companion];
   const selected = state.selectedIds.length;
-  const remaining = Math.max(0, marketTarget(state.round, state.difficulty) - state.player.score);
+  const remaining = Math.max(0, marketTarget(state.round, state.difficulty, state.modifier) - state.player.score);
   const loud = state.lastPlayerScore
     ? `${state.lastPlayerScore.handName.toUpperCase()} FOR ${money(state.lastPlayerScore.total)}!!! KEEP CRUSHING IT!!!`
     : selected >= 2
@@ -540,8 +544,8 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
   const [discardingIds, setDiscardingIds] = useState<string[]>([]);
   const [reshuffling, setReshuffling] = useState(false);
   const selected = state.player.hand.filter((card) => state.selectedIds.includes(card.instanceId));
-  const prediction = useMemo(() => selected.length ? scoreHand(selected, state.player.tycoons) : null, [selected, state.player.tycoons]);
-  const target = marketTarget(state.round, state.difficulty);
+  const prediction = useMemo(() => selected.length ? scoreHand(selected, state.player.tycoons, { modifier: state.modifier }) : null, [selected, state.player.tycoons, state.modifier]);
+  const target = marketTarget(state.round, state.difficulty, state.modifier);
   const remaining = Math.max(0, target - state.player.score);
 
   const toggle = (cardId: string) => {
@@ -624,8 +628,12 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             <ProgressRail score={state.player.score} target={target} tone="table" />
             <small>{remaining ? `${money(remaining)} to clear` : 'Target cleared'}</small>
           </div>
+          <div className="market-modifier" role="note" aria-label={`${state.modifier.name}: ${state.modifier.summary}`}>
+            <img src={`/assets/modifiers/${state.modifier.art}.webp`} alt="" />
+            <span><b>{state.modifier.name}</b>{state.modifier.summary}</span>
+          </div>
           <section className="tycoon-shelf" aria-label="Your Tycoon helpers">
-            <header><Crown aria-hidden="true" /><span>Inner circle</span><b>{state.player.tycoons.length}/5</b></header>
+            <header><Crown aria-hidden="true" /><span>Inner circle</span><b>{state.player.tycoons.length}/{MAX_TYCOONS}</b></header>
             <div className="tycoon-lineup">
               {state.player.tycoons.length
                 ? state.player.tycoons.map((tycoon) => <TycoonCard key={tycoon.id} tycoon={tycoon} compact onInspect={() => setInspectedTycoon(tycoon)} />)
@@ -681,7 +689,7 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const shop = state.shop!;
   const deck = allCards(state.player).sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
   const acquirePrice = priceFor(state.player, 4 + Math.floor(shop.acquisition.chips / 15));
-  const renovatePrice = priceFor(state.player, 4);
+  const renovatePrice = priceFor(state.player, 4 * (1 + shop.renovations));
   // Falling back to the first card in the rack keeps the highlight on screen and
   // survives a liquidate, which removes whatever was selected.
   const activeId = deck.some((card) => card.instanceId === cardId) ? cardId : (deck[0]?.instanceId ?? '');
@@ -716,14 +724,14 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
           </div>
         </header>
         <section>
-          <h2><Crown /> Tycoon contracts <small>{state.player.tycoons.length}/5 hired</small></h2>
+          <h2><Crown /> Tycoon contracts <small>{state.player.tycoons.length}/{MAX_TYCOONS} hired</small></h2>
           <div className="shop-grid">
             {shop.tycoons.map((tycoon) => {
               const price = priceFor(state.player, tycoon.cost);
               const owned = state.player.tycoons.some((item) => item.id === tycoon.id);
               return <TycoonCard key={tycoon.id} tycoon={tycoon} bought={flash === tycoon.id}>
                 <button
-                  disabled={owned || state.player.cash < price || state.player.tycoons.length >= 5}
+                  disabled={owned || state.player.cash < price || state.player.tycoons.length >= MAX_TYCOONS}
                   onClick={() => buy({ type: 'BUY_TYCOON', tycoonId: tycoon.id }, tycoon.id, price)}
                 >{owned ? 'Hired' : `Hire · $${price}`}</button>
               </TycoonCard>;
@@ -737,7 +745,7 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
               <AssetCard card={{ ...shop.acquisition, instanceId: 'offer', bonus: 0 }} compact />
               <div>
                 <h3>Acquire this deed</h3>
-                <p>Adds a <b>{shop.acquisition.name}</b> to your deck for the rest of the run. Your deck grows to {deckSize(state.player) + 1} cards.</p>
+                <p>Adds an upgraded <b>{shop.acquisition.name}</b> (+8 chips) to your deck for the rest of the run. A contract must make the deck stronger, not just larger.</p>
                 <button disabled={state.player.cash < acquirePrice} onClick={() => buy({ type: 'BUY_ACQUISITION' }, 'acquire', acquirePrice)}>Acquire · ${acquirePrice}</button>
               </div>
             </article>
@@ -758,13 +766,13 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
               </div>
               <div className="deed-actions">
                 <div className="deed-action">
-                  <button disabled={shop.renovated || state.player.cash < renovatePrice} onClick={() => buy({ type: 'RENOVATE', cardId: activeId }, 'service', renovatePrice)}>
-                    <Wrench /> {shop.renovated ? 'Renovated' : `Renovate · $${renovatePrice}`}
+                  <button disabled={!picked || state.player.cash < renovatePrice} onClick={() => buy({ type: 'RENOVATE', cardId: activeId }, 'service', renovatePrice)}>
+                    <Wrench /> Renovate · ${renovatePrice}
                   </button>
                   <small>
                     {picked
-                      ? <>Permanently upgrades <b>{picked.name}</b> from {picked.chips + picked.bonus} to <b>{picked.chips + picked.bonus + 5} chips</b>, every round from now on.</>
-                      : 'Permanently adds +5 chips to the chosen deed.'}
+                      ? <>Upgrade #{shop.renovations + 1}: permanently raises <b>{picked.name}</b> from {picked.chips + picked.bonus} to <b>{picked.chips + picked.bonus + 5 + Math.floor(picked.bonus / 5)} chips</b>. Repeated work compounds the deed.</>
+                      : 'Permanently upgrades the chosen deed. Repeated work compounds.'}
                   </small>
                 </div>
                 <div className="deed-action">
@@ -800,7 +808,7 @@ function Ending({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
         {won ? <Trophy /> : <Coins />}
         <span>{won ? 'Eight markets conquered' : `Run ended in round ${state.round}`}</span>
         <h1>{won ? 'The city is yours.' : 'The market collected.'}</h1>
-        <p>{won ? 'The final market has cleared.' : `You needed ${money(marketTarget(state.round, state.difficulty))} and closed at ${money(state.player.score)}.`}</p>
+        <p>{won ? 'The final market has cleared.' : `You needed ${money(marketTarget(state.round, state.difficulty, state.modifier))} and closed at ${money(state.player.score)}.`}</p>
         <div className="ending-score"><span>Run score</span><strong>{money(state.runScore)}</strong></div>
         <div className="ending-actions">
           <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN', difficulty: state.difficulty, companion: state.companion })}><Sparkles /> Run it back</button>
