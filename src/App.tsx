@@ -291,10 +291,11 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
         </aside>
 
         <section className="play-zone">
+          <div className="table-kicker"><span>Jakarta market blind</span><b>Ante {state.round}</b></div>
           <div className="round-track" aria-label={`Hand ${5 - state.player.handsLeft} of 4`}>
             {Array.from({ length: 4 }, (_, index) => <span key={index} className={index >= state.player.handsLeft ? 'done' : ''} />)}
           </div>
-          <div className="market-target"><span>Market target</span><strong>{money(marketTarget(state.round))}</strong><small>{money(Math.max(0, marketTarget(state.round) - state.player.score))} remaining</small></div>
+          <div className="market-target"><span>Target score</span><strong>{money(marketTarget(state.round))}</strong><small>{money(Math.max(0, marketTarget(state.round) - state.player.score))} to clear</small></div>
           <div className={`played-tray ${state.lastPlayedCards.length ? 'has-cards' : ''}`} aria-live="polite">
             <span className="played-label">{state.lastPlayedCards.length ? 'Last portfolio played' : 'Play your first portfolio'}</span>
             <div className="played-cards">
@@ -306,7 +307,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: React.Disp
             <ScoreFormula score={state.lastBotScore} label="Rival response" />
           </div>
           <div className="event-ticker" aria-live="polite">{busy ? `${rivalName} studies the market…` : state.events.at(-1)?.message}</div>
-          <ScoreFormula score={prediction} label="Projected return" />
+          <ScoreFormula score={prediction} label="Selected hand" />
         </section>
 
         <aside className="player-panel">
