@@ -35,21 +35,23 @@ async function startRun(page: Page) {
   await expect(page.getByLabel('Market progress')).toBeVisible();
 }
 
-/** Commits the selected cards and waits for the score cascade to finish. */
-async function commitAndSettle(page: Page) {
+/**
+ * Seeds the live save one hand short of a cleared first market, then resumes.
+ * Greedy play does not clear every seed, so shop tests seed instead of grinding.
+ */
+async function reachShop(page: Page) {
+  await page.evaluate(() => {
+    const key = 'deck-of-capitalist-save-v2';
+    const save = JSON.parse(localStorage.getItem(key)!);
+    save.state.player.handsLeft = 1;
+    save.state.player.score = 1_000_000;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Continue round 1/i }).click();
+  await page.locator('.hand-cards').getByRole('button', { name: /^1\./ }).click();
   await page.getByRole('button', { name: /Commit portfolio/i }).click();
-  await expect(page.locator('.score-sequence')).toHaveCount(0, { timeout: 10_000 });
-}
-
-/** Plays four hands so the round resolves into the shop or an ending. */
-async function playOutRound(page: Page) {
-  const hand = page.locator('.hand-cards');
-  for (let played = 0; played < 4; played += 1) {
-    if (!(await page.getByRole('button', { name: /Commit portfolio/i }).isVisible().catch(() => false))) return;
-    await hand.getByRole('button', { name: /^1\./ }).click();
-    await hand.getByRole('button', { name: /^2\./ }).click();
-    await commitAndSettle(page);
-  }
+  await expect(page.getByRole('heading', { name: /The Night Market/i })).toBeVisible({ timeout: 15_000 });
 }
 
 test('starts a solo market, scores, and persists the run', async ({ page }) => {
@@ -118,15 +120,65 @@ test('the shop fits the canvas at every landscape size', async ({ page }) => {
     const at = `${viewport.width}x${viewport.height}`;
     await page.setViewportSize(viewport);
     await page.goto('/');
-    // Street targets are the lowest, so a two-card greedy round reliably clears.
-    await page.getByRole('button', { name: /Street/i }).click();
     await startRun(page);
-    await playOutRound(page);
-    if (!(await page.getByRole('heading', { name: /The Night Market/i }).isVisible().catch(() => false))) continue;
+    await reachShop(page);
     await expectNoDocumentOverflow(page, `shop ${at}`);
     await expectFrameFits(page, `shop ${at}`);
     await expect(page.getByRole('button', { name: /Enter round 2/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Reroll/i })).toBeVisible();
+    // The deed desk is the point of the shop, so its controls must be reachable.
+    await expect(page.getByRole('button', { name: /^Acquire ·/i })).toBeInViewport();
+    await expect(page.getByRole('button', { name: /^Renovate ·/i })).toBeInViewport();
+    await expect(page.getByRole('button', { name: /Liquidate/i })).toBeInViewport();
+  }
+});
+
+test('the deed rack picks a card and drives both deck services', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await startRun(page);
+  await reachShop(page);
+
+  const rack = page.locator('.deed-picker .asset-card');
+  await expect(rack.first()).toBeVisible();
+  // One card is always pre-selected, so the explanation is never ambiguous.
+  await expect(page.locator('.deed-picker .asset-card.selected')).toHaveCount(1);
+
+  const target = rack.nth(6);
+  const name = (await target.locator('strong').textContent())!.trim();
+  await target.click();
+  await expect(target).toHaveClass(/selected/);
+  // Rack cards ellipsize, so the sentence under the buttons must name the card.
+  await expect(page.locator('.deed-action').first()).toContainText(name);
+
+  await page.getByRole('button', { name: /^Renovate ·/i }).click();
+  await expect(page.getByRole('button', { name: /Renovated/i })).toBeVisible();
+  await page.getByRole('button', { name: /Liquidate/i }).click();
+  await expect(page.getByRole('button', { name: /Liquidated/i })).toBeVisible();
+});
+
+test('the hand never collides with the play actions', async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const viewport of LANDSCAPE_VIEWPORTS) {
+    const at = `${viewport.width}x${viewport.height}`;
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await startRun(page);
+    const geometry = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('.hand-cards .asset-card')];
+      const last = cards[cards.length - 1].getBoundingClientRect();
+      const actions = document.querySelector('.play-actions')!.getBoundingClientRect();
+      const frame = document.querySelector('.game-frame')!.getBoundingClientRect();
+      const names = cards.map((card) => card.querySelector('strong')!);
+      return {
+        overlap: last.right - actions.left,
+        pastFrame: last.right - frame.right,
+        clippedNames: names.filter((n) => n.scrollWidth > n.clientWidth).length,
+      };
+    });
+    expect(Math.round(geometry.overlap), `${at}: hand runs under the action panel`).toBeLessThanOrEqual(0);
+    expect(Math.round(geometry.pastFrame), `${at}: hand spills past the canvas`).toBeLessThanOrEqual(0);
+    expect(geometry.clippedNames, `${at}: deed names truncated in hand`).toBe(0);
   }
 });
 

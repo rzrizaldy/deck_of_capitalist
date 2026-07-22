@@ -8,7 +8,7 @@ import {
   startBgm, stopBgm, unlockAudio,
 } from './game/audio';
 import { CARD_TEMPLATES, GROUPS, HANDS } from './game/data';
-import { allCards, deckSize, MARKET_DIFFICULTY, marketTarget, priceFor, scoreHand } from './game/engine';
+import { allCards, deckSize, MARKET_DIFFICULTY, marketTarget, MIN_DECK_SIZE, priceFor, scoreHand } from './game/engine';
 import { clearSave, loadSave, migrateLegacySave, recordHighScore, saveGame } from './game/persistence';
 import { gameReducer, initialState } from './game/reducer';
 import type { Card, Difficulty, GameState, ScoreBreakdown, Tycoon } from './game/types';
@@ -276,6 +276,8 @@ function Guide({ onClose }: { onClose: () => void }) {
             <div><dt>Mult</dt><dd>The portfolio pattern bonus that chips are multiplied by.</dd></div>
             <div><dt>Deed</dt><dd>One property card in your deck.</dd></div>
             <div><dt>Blind</dt><dd>One market round: four hands against one target.</dd></div>
+            <div><dt>Renovate</dt><dd>Pay to add +5 chips to one deed, permanently, for the rest of the run.</dd></div>
+            <div><dt>Liquidate</dt><dd>Destroy one deed for $1. A smaller deck draws your best cards more often.</dd></div>
           </dl>
         </section>
         <section>
@@ -535,12 +537,18 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
 }
 
 function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
-  const [cardId, setCardId] = useState(allCards(state.player)[0]?.instanceId ?? '');
+  const [cardId, setCardId] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
   const [spend, setSpend] = useState<{ amount: number; id: number } | null>(null);
   const shop = state.shop!;
   const deck = allCards(state.player).sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
   const acquirePrice = priceFor(state.player, 4 + Math.floor(shop.acquisition.chips / 15));
+  const renovatePrice = priceFor(state.player, 4);
+  // Falling back to the first card in the rack keeps the highlight on screen and
+  // survives a liquidate, which removes whatever was selected.
+  const activeId = deck.some((card) => card.instanceId === cardId) ? cardId : (deck[0]?.instanceId ?? '');
+  const picked = deck.find((card) => card.instanceId === activeId) ?? null;
+  const canLiquidate = deckSize(state.player) > MIN_DECK_SIZE;
 
   const buy = useCallback((action: Parameters<typeof gameReducer>[1], key: string, cost: number) => {
     unlockAudio();
@@ -590,17 +598,48 @@ function Shop({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
             <article className={`acquisition ${flash === 'acquire' ? 'bought' : ''}`}>
               <AssetCard card={{ ...shop.acquisition, instanceId: 'offer', bonus: 0 }} compact />
               <div>
-                <h3>Acquire deed</h3>
-                <p>Add this card permanently to your discard pile.</p>
+                <h3>Acquire this deed</h3>
+                <p>Adds a <b>{shop.acquisition.name}</b> to your deck for the rest of the run. Your deck grows to {deckSize(state.player) + 1} cards.</p>
                 <button disabled={state.player.cash < acquirePrice} onClick={() => buy({ type: 'BUY_ACQUISITION' }, 'acquire', acquirePrice)}>Acquire · ${acquirePrice}</button>
               </div>
             </article>
             <article className={`deck-service ${flash === 'service' ? 'bought' : ''}`}>
-              <select aria-label="Choose a deed" value={cardId} onChange={(event) => setCardId(event.target.value)}>
-                {deck.map((card) => <option value={card.instanceId} key={card.instanceId}>{GROUPS[card.group].label} · {card.name} · {card.chips + card.bonus}</option>)}
-              </select>
-              <button disabled={shop.renovated || state.player.cash < priceFor(state.player, 4)} onClick={() => buy({ type: 'RENOVATE', cardId }, 'service', priceFor(state.player, 4))}><Wrench /> {shop.renovated ? 'Renovated' : `Renovate +5 · $${priceFor(state.player, 4)}`}</button>
-              <button disabled={shop.liquidated || deckSize(state.player) <= 32} onClick={() => buy({ type: 'LIQUIDATE', cardId }, 'service', 0)}><Trash2 /> {shop.liquidated ? 'Liquidated' : 'Liquidate · +$1'}</button>
+              <h3>Work on a deed you already own</h3>
+              {/* A scrolling rack of real cards — picking your own deed should feel
+                  like handling the deck, not filling in a form. */}
+              <div className="deed-picker" role="radiogroup" aria-label="Choose a deed from your deck">
+                {deck.map((card) => (
+                  <AssetCard
+                    key={card.instanceId}
+                    card={card}
+                    compact
+                    selected={card.instanceId === activeId}
+                    onClick={() => { setCardId(card.instanceId); playSound('select', state.muted); }}
+                  />
+                ))}
+              </div>
+              <div className="deed-actions">
+                <div className="deed-action">
+                  <button disabled={shop.renovated || state.player.cash < renovatePrice} onClick={() => buy({ type: 'RENOVATE', cardId: activeId }, 'service', renovatePrice)}>
+                    <Wrench /> {shop.renovated ? 'Renovated' : `Renovate · $${renovatePrice}`}
+                  </button>
+                  <small>
+                    {picked
+                      ? <>Permanently upgrades <b>{picked.name}</b> from {picked.chips + picked.bonus} to <b>{picked.chips + picked.bonus + 5} chips</b>, every round from now on.</>
+                      : 'Permanently adds +5 chips to the chosen deed.'}
+                  </small>
+                </div>
+                <div className="deed-action">
+                  <button disabled={shop.liquidated || !canLiquidate} onClick={() => buy({ type: 'LIQUIDATE', cardId: activeId }, 'service', 0)}>
+                    <Trash2 /> {shop.liquidated ? 'Liquidated' : 'Liquidate · +$1'}
+                  </button>
+                  <small>
+                    {canLiquidate
+                      ? <>Destroys <b>{picked ? picked.name : 'the chosen deed'}</b> for $1. A thinner deck ({deckSize(state.player) - 1} cards) draws your best deeds more often.</>
+                      : <>Your deck is at the {MIN_DECK_SIZE}-card minimum, so nothing can be destroyed.</>}
+                  </small>
+                </div>
+              </div>
             </article>
           </div>
         </section>
