@@ -1,3 +1,5 @@
+import type { CompanionId } from './types';
+
 export type SoundName =
   | 'draw' | 'select' | 'deselect' | 'discard' | 'shuffle' | 'play'
   | 'chips' | 'multiplier' | 'score' | 'purchase' | 'victory' | 'defeat';
@@ -57,6 +59,17 @@ function readFlag(key: string, fallback: boolean): boolean {
 
 let volume = readNumber(VOLUME_KEY, 0.7);
 let bgmEnabled = readFlag(BGM_KEY, true);
+
+/**
+ * Companion voice lines are deliberately separate from the procedural score
+ * sounds. They are fired only when a hand is actually committed, never when
+ * selecting cards, so the table still has a clean Balatro-like rhythm.
+ */
+const COMPANION_SFX: Partial<Record<CompanionId, string>> = {
+  soloman: '/assets/sfx/soloman-play.mp3',
+};
+
+const companionPlayers: Partial<Record<CompanionId, HTMLAudioElement>> = {};
 
 /* ---------------------------------------------------------------- context */
 
@@ -138,6 +151,19 @@ export function playSound(name: SoundName, muted: boolean): void {
     oscillator.stop(at + voice.hold + 0.02);
     oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
   });
+}
+
+/** Play the selected Konco's short callout when the player commits a hand. */
+export function playCompanionSfx(companion: CompanionId, muted: boolean): boolean {
+  if (muted || volume <= 0 || typeof Audio === 'undefined') return false;
+  const source = COMPANION_SFX[companion];
+  if (!source) return false;
+  const player = companionPlayers[companion] ?? new Audio(source);
+  companionPlayers[companion] = player;
+  player.currentTime = 0;
+  player.volume = Math.min(1, volume * 0.9);
+  void player.play().catch(() => undefined);
+  return true;
 }
 
 /* -------------------------------------------------------------------- bgm */

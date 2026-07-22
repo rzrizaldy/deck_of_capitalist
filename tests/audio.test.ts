@@ -74,6 +74,31 @@ describe('audio settings', () => {
     expect(audio.isBgmPlaying()).toBe(false);
   });
 
+  it('plays Soloman’s downloaded cue at the current game volume', async () => {
+    installStorage();
+    const play = vi.fn().mockResolvedValue(undefined);
+    const cue = { currentTime: 2, volume: 0, play };
+    vi.stubGlobal('Audio', vi.fn(() => cue));
+    const audio = await import('../src/game/audio');
+    audio.setVolume(0.8);
+    expect(audio.playCompanionSfx('soloman', false)).toBe(true);
+    expect(cue.currentTime).toBe(0);
+    expect(cue.volume).toBeCloseTo(0.72);
+    expect(play).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+  });
+
+  it('does not play a companion cue while muted or when no licensed local cue exists', async () => {
+    installStorage();
+    const play = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('Audio', vi.fn(() => ({ currentTime: 0, volume: 0, play })));
+    const audio = await import('../src/game/audio');
+    expect(audio.playCompanionSfx('soloman', true)).toBe(false);
+    expect(audio.playCompanionSfx('gemoy', false)).toBe(false);
+    expect(play).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('skips haptics when the pointer device cannot vibrate', async () => {
     installStorage();
     const audio = await import('../src/game/audio');

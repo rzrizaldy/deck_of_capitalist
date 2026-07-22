@@ -4,7 +4,7 @@ import {
   Eye, Maximize2, Minimize2, Sparkles, Target, Trash2, Trophy, Volume2, VolumeX, Wrench, X,
 } from 'lucide-react';
 import {
-  getVolume, isBgmEnabled, playSound, pulseHaptic, setBgmEnabled, setVolume,
+  getVolume, isBgmEnabled, playCompanionSfx, playSound, pulseHaptic, setBgmEnabled, setVolume,
   startBgm, stopBgm, unlockAudio,
 } from './game/audio';
 import { CARD_TEMPLATES, GROUPS, HANDS } from './game/data';
@@ -529,7 +529,9 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
     setBusy(true);
     const id = Date.now();
     setSequence({ cards: selected, score: prediction, stage: 'cards', id });
-    playSound('play', state.muted); pulseHaptic(8);
+    playSound('play', state.muted);
+    playCompanionSfx(state.companion, state.muted);
+    pulseHaptic(8);
     window.setTimeout(() => { setSequence((current) => current?.id === id ? { ...current, stage: 'chips' } : current); playSound('chips', state.muted); pulseHaptic(5); }, 280);
     window.setTimeout(() => { setSequence((current) => current?.id === id ? { ...current, stage: 'multiplier' } : current); playSound('multiplier', state.muted); pulseHaptic(6); }, 600);
     window.setTimeout(() => { dispatch({ type: 'PLAYER_PLAY' }); setSequence((current) => current?.id === id ? { ...current, stage: 'total' } : current); playSound('score', state.muted); pulseHaptic([12, 22, 18]); }, 900);
