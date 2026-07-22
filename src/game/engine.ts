@@ -1,7 +1,7 @@
-import { CARD_TEMPLATES, CONSUMABLES, GROUPS, HANDS, MARKET_MODIFIERS, STARTING_DUPLICATES, TYCOONS } from './data';
+import { CARD_TEMPLATES, CONSUMABLES, HANDS, MARKET_MODIFIERS, STARTING_DUPLICATES, TYCOONS } from './data';
 import { pick, shuffle } from './rng';
 import type {
-  Card, CardTemplate, PlayerState, Difficulty, GameState, GroupKey, HandKey,
+  Card, CardTemplate, PlayerState, Difficulty, GameState, HandKey,
   MarketModifier, ScoreBreakdown, ScoreContext, ShopState, Tycoon,
 } from './types';
 
@@ -13,7 +13,7 @@ export const MAX_TYCOONS = 7;
 export const MIN_DECK_SIZE = 32;
 export const MARKET_TARGETS = [2800, 3900, 5400, 7400, 10200, 14000, 19300, 26700] as const;
 export const MARKET_DIFFICULTY: Record<Difficulty, { label: string; description: string; targetFactor: number }> = {
-  casual: { label: 'Street', description: '75% published targets', targetFactor: 0.75 },
+  casual: { label: 'Street', description: '62% published targets', targetFactor: 0.62 },
   trader: { label: 'Market', description: 'Published targets', targetFactor: 1 },
   tycoon: { label: 'High Stakes', description: '250% published targets', targetFactor: 2.5 },
 };
@@ -112,32 +112,31 @@ export function createPlayer(owner: string, rngState: number): DrawResult {
 }
 
 export function identifyHand(cards: Card[]): HandKey {
-  const counts = new Map<GroupKey, number>();
-  cards.forEach((card) => counts.set(card.group, (counts.get(card.group) ?? 0) + 1));
-  const entries = [...counts.entries()];
-  const distinctRails = new Set(cards.filter((card) => card.group === 'RAILROAD').map((card) => card.id)).size;
-  if (distinctRails >= 4) return 'TRANSPORT';
-  if (cards.length === 5 && counts.size === 5) return 'DIVERSIFIED';
-
-  const completed = entries.filter(([group, count]) => count >= GROUPS[group].setSize);
-  const hasSeparatePair = completed.some(([completeGroup]) =>
-    entries.some(([group, count]) => group !== completeGroup && count >= 2));
-  if (completed.length > 0 && hasSeparatePair) return 'CONGLOMERATE';
-  if (completed.length > 0) return 'TAKEOVER';
-  const pairs = entries.filter(([, count]) => count >= 2).length;
-  if (pairs >= 2) return 'JOINT_VENTURE';
-  if (pairs === 1) return 'DEVELOPMENT';
-  return 'LIQUIDATION';
+  const ranks = new Map<number, number>();
+  cards.forEach((card) => ranks.set(card.rank, (ranks.get(card.rank) ?? 0) + 1));
+  const multiplicities = [...ranks.values()].sort((a, b) => b - a);
+  const flush = cards.length === 5 && new Set(cards.map((card) => card.group)).size === 1;
+  const values = [...ranks.keys()].sort((a, b) => a - b);
+  const straight = cards.length === 5 && values.length === 5 && values.every((rank, index) => index === 0 || rank === values[index - 1] + 1);
+  if (straight && flush) return 'STRAIGHT_FLUSH';
+  if (multiplicities[0] === 4) return 'FOUR_KIND';
+  if (multiplicities[0] === 3 && multiplicities[1] === 2) return 'FULL_HOUSE';
+  if (flush) return 'FLUSH';
+  if (straight) return 'STRAIGHT';
+  if (multiplicities[0] === 3) return 'THREE_KIND';
+  if (multiplicities[0] === 2 && multiplicities[1] === 2) return 'TWO_PAIRS';
+  if (multiplicities[0] === 2) return 'PAIR';
+  return 'HIGH_ASSET';
 }
 
 function chipsForMarket(card: Card, modifier?: MarketModifier): number {
   const chips = card.chips + card.bonus;
   if (!modifier) return chips;
-  if (modifier.id === 'BANJIR' && (card.group === 'BROWN' || card.group === 'PINK')) return 0;
-  if (modifier.id === 'MACET' && card.group === 'RAILROAD') return Math.floor(chips / 2);
+  if (modifier.id === 'BANJIR' && card.group === 'RESIDENTIAL') return 0;
+  if (modifier.id === 'MACET' && card.group === 'TRANSPORT') return Math.floor(chips / 2);
   if (modifier.id === 'MATI_LAMPU' && card.group === 'UTILITY') return 0;
   if (modifier.id === 'GANJIL_GENAP' && chips % 2 !== (modifier.parity === 'odd' ? 1 : 0)) return 0;
-  if (modifier.id === 'MUSIM_KAWIN') return card.group === 'YELLOW' ? chips * 2 : Math.floor(chips * 0.8);
+  if (modifier.id === 'MUSIM_KAWIN') return card.group === 'COMMERCIAL' ? chips * 2 : Math.floor(chips * 0.8);
   return chips;
 }
 

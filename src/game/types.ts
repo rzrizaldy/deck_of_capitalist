@@ -2,8 +2,7 @@ export type Difficulty = 'casual' | 'trader' | 'tycoon';
 export type CompanionId = 'gemoy' | 'soloman';
 export type Phase = 'menu' | 'intro' | 'playing' | 'shop' | 'victory' | 'gameover';
 export type GroupKey =
-  | 'BROWN' | 'SKY' | 'PINK' | 'ORANGE' | 'RED'
-  | 'YELLOW' | 'GREEN' | 'BLUE' | 'RAILROAD' | 'UTILITY';
+  | 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL' | 'UTILITY' | 'TRANSPORT';
 
 export type MarketModifierId =
   | 'BANJIR' | 'MACET' | 'MATI_LAMPU' | 'GANJIL_GENAP'
@@ -34,6 +33,8 @@ export interface CardTemplate {
   name: string;
   group: GroupKey;
   chips: number;
+  /** 1–10 rank. Five consecutive ranks form a Straight. */
+  rank: number;
 }
 
 export interface Card extends CardTemplate {
@@ -65,8 +66,8 @@ export interface Tycoon {
 }
 
 export type HandKey =
-  | 'LIQUIDATION' | 'DEVELOPMENT' | 'JOINT_VENTURE'
-  | 'TAKEOVER' | 'CONGLOMERATE' | 'DIVERSIFIED' | 'TRANSPORT';
+  | 'HIGH_ASSET' | 'PAIR' | 'TWO_PAIRS' | 'THREE_KIND' | 'STRAIGHT'
+  | 'FLUSH' | 'FULL_HOUSE' | 'FOUR_KIND' | 'STRAIGHT_FLUSH';
 
 export interface ScoreBreakdown {
   hand: HandKey;

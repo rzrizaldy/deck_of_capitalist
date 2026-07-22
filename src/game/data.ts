@@ -1,26 +1,23 @@
 import type { CardTemplate, Consumable, GroupKey, HandKey, MarketModifier, Tycoon } from './types';
 
 export const GROUPS: Record<GroupKey, { label: string; setSize: number; color: string; ink: string }> = {
-  BROWN: { label: 'Regional', setSize: 2, color: '#8b5a2b', ink: '#fff5df' },
-  SKY: { label: 'Java', setSize: 3, color: '#50c8ef', ink: '#071c2b' },
-  PINK: { label: 'Heritage', setSize: 3, color: '#e4549b', ink: '#260919' },
-  ORANGE: { label: 'Tourism', setSize: 3, color: '#f28b2d', ink: '#2b1203' },
-  RED: { label: 'Industrial', setSize: 3, color: '#d84343', ink: '#fff1e7' },
-  YELLOW: { label: 'Lifestyle', setSize: 3, color: '#f1c84c', ink: '#211702' },
-  GREEN: { label: 'Golden Triangle', setSize: 3, color: '#2da66f', ink: '#031d12' },
-  BLUE: { label: 'Elite', setSize: 2, color: '#315bb4', ink: '#eef4ff' },
-  RAILROAD: { label: 'Transit', setSize: 4, color: '#2d3139', ink: '#f8d98b' },
-  UTILITY: { label: 'Utility', setSize: 2, color: '#7d8794', ink: '#101419' },
+  RESIDENTIAL: { label: 'Hunian', setSize: 10, color: '#b85d5a', ink: '#fff3df' },
+  COMMERCIAL: { label: 'Komersial', setSize: 10, color: '#ca8d2d', ink: '#241604' },
+  INDUSTRIAL: { label: 'Industri', setSize: 10, color: '#7858b7', ink: '#f4efff' },
+  UTILITY: { label: 'Utilitas', setSize: 10, color: '#5d8797', ink: '#081a21' },
+  TRANSPORT: { label: 'Transport', setSize: 10, color: '#319b76', ink: '#021c12' },
 };
 
 export const HANDS: Record<HandKey, { name: string; multiplier: number; description: string }> = {
-  LIQUIDATION: { name: 'Likuidasi', multiplier: 1, description: 'Tanpa grup aset yang cocok.' },
-  DEVELOPMENT: { name: 'Pengembangan', multiplier: 2, description: 'Satu pasangan belum lengkap.' },
-  JOINT_VENTURE: { name: 'Usaha Patungan', multiplier: 3, description: 'Dua pasangan terpisah.' },
-  TAKEOVER: { name: 'Pengambilalihan', multiplier: 5, description: 'Satu grup aset lengkap.' },
-  CONGLOMERATE: { name: 'Konglomerat', multiplier: 7, description: 'Grup lengkap plus satu pasangan lain.' },
-  DIVERSIFIED: { name: 'Portofolio Beragam', multiplier: 8, description: 'Lima kartu dari lima grup.' },
-  TRANSPORT: { name: 'Jaringan Transportasi', multiplier: 12, description: 'Empat rel berbeda.' },
+  HIGH_ASSET: { name: 'Aset Tinggi', multiplier: 1, description: 'Tidak ada pola; rank tertinggi memimpin.' },
+  PAIR: { name: 'Pasangan', multiplier: 2, description: 'Dua aset dengan rank sama.' },
+  TWO_PAIRS: { name: 'Dua Pasang', multiplier: 3, description: 'Dua pasangan rank berbeda.' },
+  THREE_KIND: { name: 'Tiga Serupa', multiplier: 4, description: 'Tiga aset dengan rank sama.' },
+  STRAIGHT: { name: 'Koridor', multiplier: 6, description: 'Lima rank berurutan, kelas bebas.' },
+  FLUSH: { name: 'Satu Kelas', multiplier: 7, description: 'Lima aset dari kelas yang sama.' },
+  FULL_HOUSE: { name: 'Kawasan Lengkap', multiplier: 9, description: 'Tiga serupa plus satu pasangan.' },
+  FOUR_KIND: { name: 'Empat Serupa', multiplier: 12, description: 'Empat aset dengan rank sama.' },
+  STRAIGHT_FLUSH: { name: 'Koridor Prime', multiplier: 16, description: 'Lima rank berurutan dalam satu kelas.' },
 };
 
 /** Market events are public constraints, not surprise punishments. */
@@ -42,68 +39,47 @@ export const CONSUMABLES: Consumable[] = [
   { id: 'SITA', name: 'Sita', description: 'Musnahkan tepat tiga aset terpilih dari tanganmu.', cost: 4, art: 'sita' },
 ];
 
-export const CARD_TEMPLATES: CardTemplate[] = [
-  { id: 'medan', name: 'Medan', chips: 5, group: 'BROWN' },
-  { id: 'palembang', name: 'Palembang', chips: 5, group: 'BROWN' },
-  { id: 'bandung', name: 'Bandung', chips: 10, group: 'SKY' },
-  { id: 'bogor', name: 'Bogor', chips: 10, group: 'SKY' },
-  { id: 'semarang', name: 'Semarang', chips: 10, group: 'SKY' },
-  { id: 'yogyakarta', name: 'Yogyakarta', chips: 15, group: 'PINK' },
-  { id: 'solo', name: 'Solo', chips: 15, group: 'PINK' },
-  { id: 'surabaya', name: 'Surabaya', chips: 15, group: 'PINK' },
-  { id: 'kuta', name: 'Kuta Beach', chips: 20, group: 'ORANGE' },
-  { id: 'ubud', name: 'Ubud', chips: 20, group: 'ORANGE' },
-  { id: 'seminyak', name: 'Seminyak', chips: 20, group: 'ORANGE' },
-  { id: 'balikpapan', name: 'Balikpapan', chips: 25, group: 'RED' },
-  { id: 'makassar', name: 'Makassar', chips: 25, group: 'RED' },
-  { id: 'manado', name: 'Manado', chips: 25, group: 'RED' },
-  { id: 'kemang', name: 'Kemang', chips: 30, group: 'YELLOW' },
-  { id: 'senopati', name: 'Senopati', chips: 30, group: 'YELLOW' },
-  { id: 'pondok-indah', name: 'Pondok Indah', chips: 30, group: 'YELLOW' },
-  { id: 'kuningan', name: 'Kuningan', chips: 35, group: 'GREEN' },
-  { id: 'sudirman', name: 'Sudirman', chips: 35, group: 'GREEN' },
-  { id: 'thamrin', name: 'Thamrin', chips: 35, group: 'GREEN' },
-  { id: 'menteng', name: 'Menteng', chips: 50, group: 'BLUE' },
-  { id: 'scbd', name: 'SCBD', chips: 50, group: 'BLUE' },
-  { id: 'gambir', name: 'Gambir Station', chips: 20, group: 'RAILROAD' },
-  { id: 'soetta', name: 'Soetta Airport', chips: 20, group: 'RAILROAD' },
-  { id: 'mrt', name: 'MRT Jakarta', chips: 20, group: 'RAILROAD' },
-  { id: 'whoosh', name: 'Whoosh Rail', chips: 20, group: 'RAILROAD' },
-  { id: 'pln', name: 'PLN Power', chips: 15, group: 'UTILITY' },
-  { id: 'pdam', name: 'PDAM Water', chips: 15, group: 'UTILITY' },
-  { id: 'batam', name: 'Batam Port', chips: 12, group: 'RAILROAD' },
-  { id: 'malang', name: 'Malang', chips: 16, group: 'PINK' },
-  { id: 'nusa-dua', name: 'Nusa Dua', chips: 21, group: 'ORANGE' },
-  { id: 'bsd', name: 'BSD City', chips: 31, group: 'YELLOW' },
+const ASSET_CLASSES: Array<{ group: GroupKey; names: string[] }> = [
+  { group: 'RESIDENTIAL', names: ['Kampung Pesisir', 'Rusun Pinggir Rel', 'Kontrakan Cipinang', 'Perumahan Bekasi', 'Komplek Cibubur', 'Kemang Townhouse', 'Pondok Indah', 'Menteng', 'Pantai Indah Kapuk', 'Superblok SCBD'] },
+  { group: 'COMMERCIAL', names: ['Warung Tenda', 'Kios Pasar', 'Ruko Depok', 'Ruko BSD', 'Kafe Kemang', 'Blok M Plaza', 'Senopati Strip', 'Kuningan Tower', 'Sudirman Exchange', 'SCBD District'] },
+  { group: 'INDUSTRIAL', names: ['Gudang Dadap', 'Pabrik Cikarang', 'Kawasan Karawang', 'Pelabuhan Tanjung Priok', 'Smelter Sulawesi', 'Kilang Balikpapan', 'Batam Freeport', 'Kawasan Kendal', 'Morowali Estate', 'Nusantara Megaproject'] },
+  { group: 'UTILITY', names: ['Sumur Kampung', 'PDAM Cabang', 'Gardu PLN', 'Menara BTS', 'IPAL Kota', 'Bendungan Jatiluhur', 'Jaringan Serat', 'Pembangkit Gas', 'PLTA Cirata', 'Grid Nusantara'] },
+  { group: 'TRANSPORT', names: ['Angkot Terminal', 'Stasiun KRL', 'Pelabuhan Merak', 'Tol Cipularang', 'MRT Jakarta', 'Bandara Soetta', 'Whoosh Rail', 'Pelabuhan Batam', 'Trans-Sumatra', 'Jaringan Logistik Nusantara'] },
 ];
 
-export const STARTING_DUPLICATES = ['medan', 'palembang', 'bandung', 'bogor', 'semarang', 'yogyakarta', 'solo', 'pln'];
+export const CARD_TEMPLATES: CardTemplate[] = ASSET_CLASSES.flatMap(({ group, names }) =>
+  Array.from({ length: 10 }, (_, index) => {
+    const rank = index + 1;
+    return { id: `${group.toLowerCase()}-${rank}`, name: names[index], chips: rank * 5, rank, group };
+  }),
+);
+export const STARTING_DUPLICATES: string[] = [];
 
 const TYCOON_ROSTER: Tycoon[] = [
   { id: 'pak-notaris', name: 'Pak Notaris', description: '×1.5 multiplier. The paperwork always clears.', cost: 8, effect: { kind: 'xmult_flat', amount: 1.5 } },
-  { id: 'makelar-tanah', artId: 'red-baron', name: 'Makelar Tanah', description: '+3 multiplier for each Regional deed.', cost: 5, effect: { kind: 'mult_per_group', group: 'BROWN', amount: 3 } },
+  { id: 'makelar-tanah', artId: 'red-baron', name: 'Makelar Tanah', description: '+3 multiplier untuk tiap aset Hunian.', cost: 5, effect: { kind: 'mult_per_group', group: 'RESIDENTIAL', amount: 3 } },
   { id: 'oknum', artId: 'insider', name: 'Oknum', description: '×1.35 multiplier. The inspection looks away.', cost: 9, effect: { kind: 'xmult_flat', amount: 1.35 } },
   { id: 'anak-pejabat', artId: 'banker', name: 'Anak Pejabat', description: 'All Night Market prices are 40% lower.', cost: 7, effect: { kind: 'shop_discount', amount: 0.6 } },
-  { id: 'bos-proyek', artId: 'power-player', name: 'Bos Proyek', description: '+25 chips for each Industrial deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'RED', amount: 25 } },
-  { id: 'juragan-kos', artId: 'heritage-trust', name: 'Juragan Kos', description: '+20 chips for each Heritage deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'PINK', amount: 20 } },
-  { id: 'sultan-andara', artId: 'blue-chip', name: 'Sultan Andara', description: '×2 multiplier when an Elite deed joins the play.', cost: 10, effect: { kind: 'xmult_per_group', group: 'BLUE', amount: 2 } },
-  { id: 'tukang-palak', artId: 'lone-wolf', name: 'Tukang Palak', description: '+4 multiplier for each Lifestyle deed.', cost: 6, effect: { kind: 'mult_per_group', group: 'YELLOW', amount: 4 } },
+  { id: 'bos-proyek', artId: 'power-player', name: 'Bos Proyek', description: '+25 chip untuk tiap aset Industri.', cost: 6, effect: { kind: 'chips_per_group', group: 'INDUSTRIAL', amount: 25 } },
+  { id: 'juragan-kos', artId: 'heritage-trust', name: 'Juragan Kos', description: '+20 chip untuk tiap aset Hunian.', cost: 6, effect: { kind: 'chips_per_group', group: 'RESIDENTIAL', amount: 20 } },
+  { id: 'sultan-andara', artId: 'blue-chip', name: 'Sultan Andara', description: '×2 multiplier saat aset Komersial ikut dimainkan.', cost: 10, effect: { kind: 'xmult_per_group', group: 'COMMERCIAL', amount: 2 } },
+  { id: 'tukang-palak', artId: 'lone-wolf', name: 'Tukang Palak', description: '+4 multiplier untuk tiap aset Komersial.', cost: 6, effect: { kind: 'mult_per_group', group: 'COMMERCIAL', amount: 4 } },
   { id: 'pak-rt', artId: 'green-corridor', name: 'Pak RT', description: 'Raises the interest cap to $10.', cost: 5, effect: { kind: 'interest_cap', amount: 10 } },
-  { id: 'investor-bodong', artId: 'diversifier', name: 'Investor Bodong', description: '×2.25 on a Diversified Portfolio. Trust the brochure.', cost: 8, effect: { kind: 'xmult_per_hand', hand: 'DIVERSIFIED', amount: 2.25 } },
-  { id: 'raja-kavling', artId: 'red-baron', name: 'Raja Kavling', description: '×1.35 multiplier for each Regional deed.', cost: 8, effect: { kind: 'xmult_per_group', group: 'BROWN', amount: 1.35 } },
-  { id: 'ibu-ibu-arisan', artId: 'heritage-trust', name: 'Ibu-Ibu Arisan', description: '+70 chips on a Development.', cost: 5, effect: { kind: 'chips_for_hand', hand: 'DEVELOPMENT', amount: 70 } },
+  { id: 'investor-bodong', artId: 'diversifier', name: 'Investor Bodong', description: '×2.25 pada Koridor Prime. Percaya brosurnya.', cost: 8, effect: { kind: 'xmult_per_hand', hand: 'STRAIGHT_FLUSH', amount: 2.25 } },
+  { id: 'raja-kavling', artId: 'red-baron', name: 'Raja Kavling', description: '×1.35 multiplier untuk tiap aset Hunian.', cost: 8, effect: { kind: 'xmult_per_group', group: 'RESIDENTIAL', amount: 1.35 } },
+  { id: 'ibu-ibu-arisan', artId: 'heritage-trust', name: 'Ibu-Ibu Arisan', description: '+70 chip pada Pasangan.', cost: 5, effect: { kind: 'chips_for_hand', hand: 'PAIR', amount: 70 } },
   { id: 'mafia-parkir', artId: 'lone-wolf', name: 'Mafia Parkir', description: '×1.8 multiplier on a one-card play.', cost: 5, effect: { kind: 'xmult_hand_size', size: 1, amount: 1.8 } },
-  { id: 'bandar-tol', artId: 'rail-magnate', name: 'Bandar Tol', description: '+3 multiplier for each Transit deed.', cost: 7, effect: { kind: 'mult_per_group', group: 'RAILROAD', amount: 3 } },
-  { id: 'pengusaha-kafe', artId: 'green-corridor', name: 'Pengusaha Kafe', description: '+22 chips for each Lifestyle deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'YELLOW', amount: 22 } },
-  { id: 'penguasa-sudirman', artId: 'green-corridor', name: 'Penguasa Sudirman', description: '+4 multiplier for each Golden Triangle deed.', cost: 7, effect: { kind: 'mult_per_group', group: 'GREEN', amount: 4 } },
-  { id: 'tuan-tanah', artId: 'blue-chip', name: 'Tuan Tanah', description: '×2 multiplier on a Takeover.', cost: 9, effect: { kind: 'xmult_per_hand', hand: 'TAKEOVER', amount: 2 } },
+  { id: 'bandar-tol', artId: 'rail-magnate', name: 'Bandar Tol', description: '+3 multiplier untuk tiap aset Transport.', cost: 7, effect: { kind: 'mult_per_group', group: 'TRANSPORT', amount: 3 } },
+  { id: 'pengusaha-kafe', artId: 'green-corridor', name: 'Pengusaha Kafe', description: '+22 chip untuk tiap aset Komersial.', cost: 6, effect: { kind: 'chips_per_group', group: 'COMMERCIAL', amount: 22 } },
+  { id: 'penguasa-sudirman', artId: 'green-corridor', name: 'Penguasa Sudirman', description: '+4 multiplier untuk tiap aset Komersial.', cost: 7, effect: { kind: 'mult_per_group', group: 'COMMERCIAL', amount: 4 } },
+  { id: 'tuan-tanah', artId: 'blue-chip', name: 'Tuan Tanah', description: '×2 multiplier pada Kawasan Lengkap.', cost: 9, effect: { kind: 'xmult_per_hand', hand: 'FULL_HOUSE', amount: 2 } },
   { id: 'pialang-saham', artId: 'banker', name: 'Pialang Saham', description: '×1.6 multiplier. Everything is priced in.', cost: 8, effect: { kind: 'xmult_flat', amount: 1.6 } },
-  { id: 'bos-pelabuhan', artId: 'rail-magnate', name: 'Bos Pelabuhan', description: '+30 chips for each Transit deed.', cost: 7, effect: { kind: 'chips_per_group', group: 'RAILROAD', amount: 30 } },
+  { id: 'bos-pelabuhan', artId: 'rail-magnate', name: 'Bos Pelabuhan', description: '+30 chip untuk tiap aset Transport.', cost: 7, effect: { kind: 'chips_per_group', group: 'TRANSPORT', amount: 30 } },
   { id: 'sultan-kontainer', artId: 'power-player', name: 'Sultan Kontainer', description: '+45 chips for each Utility deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'UTILITY', amount: 45 } },
-  { id: 'ibu-cosplay', artId: 'diversifier', name: 'Ibu Cosplay', description: '×1.9 multiplier on a Conglomerate.', cost: 8, effect: { kind: 'xmult_per_hand', hand: 'CONGLOMERATE', amount: 1.9 } },
-  { id: 'raja-petak', artId: 'red-baron', name: 'Raja Petak', description: '+90 chips on a Joint Venture.', cost: 6, effect: { kind: 'chips_for_hand', hand: 'JOINT_VENTURE', amount: 90 } },
-  { id: 'kolektor-ruko', artId: 'blue-chip', name: 'Kolektor Ruko', description: '×1.5 multiplier for each Elite deed.', cost: 9, effect: { kind: 'xmult_per_group', group: 'BLUE', amount: 1.5 } },
-  { id: 'juragan-bali', artId: 'green-corridor', name: 'Juragan Bali', description: '+24 chips for each Tourism deed.', cost: 6, effect: { kind: 'chips_per_group', group: 'ORANGE', amount: 24 } },
+  { id: 'ibu-cosplay', artId: 'diversifier', name: 'Ibu Cosplay', description: '×1.9 multiplier pada Satu Kelas.', cost: 8, effect: { kind: 'xmult_per_hand', hand: 'FLUSH', amount: 1.9 } },
+  { id: 'raja-petak', artId: 'red-baron', name: 'Raja Petak', description: '+90 chip pada Dua Pasang.', cost: 6, effect: { kind: 'chips_for_hand', hand: 'TWO_PAIRS', amount: 90 } },
+  { id: 'kolektor-ruko', artId: 'blue-chip', name: 'Kolektor Ruko', description: '×1.5 multiplier untuk tiap aset Komersial.', cost: 9, effect: { kind: 'xmult_per_group', group: 'COMMERCIAL', amount: 1.5 } },
+  { id: 'juragan-bali', artId: 'green-corridor', name: 'Juragan Bali', description: '+24 chip untuk tiap aset Hunian.', cost: 6, effect: { kind: 'chips_per_group', group: 'RESIDENTIAL', amount: 24 } },
 ];
 
 /**

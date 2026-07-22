@@ -19,8 +19,8 @@ const LOCALE_KEY = 'doc-locale';
 const LocaleContext = createContext<Locale>('id');
 const useLocale = () => useContext(LocaleContext);
 const tr = (locale: Locale, english: string, indonesian: string) => locale === 'id' ? indonesian : english;
-const localizedGroup = (group: keyof typeof GROUPS, locale: Locale) => tr(locale, ({ BROWN: 'Regional', SKY: 'Java', PINK: 'Heritage', ORANGE: 'Tourism', RED: 'Industrial', YELLOW: 'Lifestyle', GREEN: 'Golden Triangle', BLUE: 'Elite', RAILROAD: 'Transit', UTILITY: 'Utility' } as const)[group], ({ BROWN: 'Regional', SKY: 'Jawa', PINK: 'Warisan', ORANGE: 'Wisata', RED: 'Industri', YELLOW: 'Gaya Hidup', GREEN: 'Segitiga Emas', BLUE: 'Elite', RAILROAD: 'Transit', UTILITY: 'Utilitas' } as const)[group]);
-const localizedHand = (hand: ScoreBreakdown['hand'], locale: Locale) => tr(locale, ({ LIQUIDATION: 'Liquidation', DEVELOPMENT: 'Development', JOINT_VENTURE: 'Joint Venture', TAKEOVER: 'Takeover', CONGLOMERATE: 'Conglomerate', DIVERSIFIED: 'Diversified Portfolio', TRANSPORT: 'Transport Network' } as const)[hand], HANDS[hand].name);
+const localizedGroup = (group: keyof typeof GROUPS, locale: Locale) => tr(locale, ({ RESIDENTIAL: 'Residential', COMMERCIAL: 'Commercial', INDUSTRIAL: 'Industrial', UTILITY: 'Utility', TRANSPORT: 'Transport' } as const)[group], GROUPS[group].label);
+const localizedHand = (hand: ScoreBreakdown['hand'], locale: Locale) => tr(locale, ({ HIGH_ASSET: 'High Asset', PAIR: 'Pair', TWO_PAIRS: 'Two Pairs', THREE_KIND: 'Three of a Kind', STRAIGHT: 'Straight', FLUSH: 'Flush', FULL_HOUSE: 'Full House', FOUR_KIND: 'Four of a Kind', STRAIGHT_FLUSH: 'Straight Flush' } as const)[hand], HANDS[hand].name);
 const localizedModifier = (modifier: GameState['modifier'], locale: Locale) => {
   const english = ({ BANJIR: ['Flood', 'Regional and Heritage deeds score 0 this market.'], MACET: ['Gridlock', 'Transit deeds score half chips this market.'], MATI_LAMPU: ['Blackout', 'Utility deeds score 0 this market.'], GANJIL_GENAP: ['Odd-Even', `Only ${modifier.parity ?? 'odd'}-chip deeds score this market.`], SIDAK: ['Inspection', 'Tycoon effects are disabled this market.'], MUSIM_KAWIN: ['Mating Season', 'Lifestyle chips double; all other deed chips are −20%.'], REKLAMASI: ['Reclamation', 'Three random deeds are removed for this market only.'] } as const)[modifier.id];
   return locale === 'en' ? { name: english[0], summary: english[1] } : modifier;
@@ -34,6 +34,7 @@ const localizedConsumable = (item: Consumable, locale: Locale) => locale === 'id
 }[item.id]);
 
 const money = (value: number) => value.toLocaleString('en-US');
+const cardArt = (card: Card) => `/assets/classes/${card.group.toLowerCase()}.webp`;
 const clearedPercent = (score: number, target: number) =>
   Math.max(0, Math.min(100, Math.round((score / Math.max(1, target)) * 100)));
 
@@ -232,7 +233,8 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
       aria-label={`${onClick && index !== undefined ? `${index + 1}. ` : ''}${card.name}, ${card.chips + card.bonus} chips`}
       type="button"
     >
-      <img className="card-art" src={`/assets/cards/${card.id}.webp`} alt={onInspect ? `Inspect ${card.name} artwork` : ''} loading="lazy" />
+      <img className="card-art" src={cardArt(card)} alt={onInspect ? `Inspect ${card.name} artwork` : ''} loading="lazy" />
+      <span className="card-rank" aria-label={`Rank ${card.rank}`}>{card.rank}</span>
       {onInspect && <span className="inspect-hint" aria-hidden="true"><Eye /></span>}
       <span className="card-stripe">{localizedGroup(card.group, locale)}</span>
       <strong>{card.name}</strong>
@@ -248,7 +250,7 @@ function CardPreview({ card, onClose }: { card: Card; onClose: () => void }) {
   return <div className="card-preview-backdrop" role="presentation" onMouseDown={onClose}>
     <section className="card-preview" role="dialog" aria-modal="true" aria-label={`${card.name} card preview`} onMouseDown={(event) => event.stopPropagation()}>
       <button className="icon-button preview-close" onClick={onClose} aria-label="Close card preview"><X /></button>
-      <img src={`/assets/cards/${card.id}.webp`} alt={`${card.name} pixel-noir property illustration`} />
+      <img src={cardArt(card)} alt={`${card.name} pixel-noir property illustration`} />
       <div className="preview-vignette" />
       <div className="preview-details">
         <span style={{ '--preview-group': group.color } as React.CSSProperties}>{localizedGroup(card.group, locale)}</span>
@@ -737,7 +739,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             </div>
           </div>
           {sequence && <div className="score-sequence" aria-hidden="true">
-            <div className="flight-cards">{sequence.cards.map((card, index) => <img key={card.instanceId} src={`/assets/cards/${card.id}.webp`} style={{ '--flight-index': index } as React.CSSProperties} alt="" />)}</div>
+            <div className="flight-cards">{sequence.cards.map((card, index) => <img key={card.instanceId} src={cardArt(card)} style={{ '--flight-index': index } as React.CSSProperties} alt="" />)}</div>
             <ScoreCascade sequence={sequence} />
           </div>}
           <div className="last-hands">
