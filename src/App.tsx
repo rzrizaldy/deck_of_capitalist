@@ -21,8 +21,8 @@ const clearedPercent = (score: number, target: number) =>
 
 const COMPANIONS = {
   gemoy: {
-    name: 'Gemoy',
-    title: 'The Big-Hearted Fixer',
+    name: 'AntekAsync',
+    title: 'The All-Caps Enforcer',
     asset: '/assets/companions/gemoy.png',
     intro: 'Big moves, bigger grin. Show the market who owns the table.',
   },
@@ -143,33 +143,45 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
 }) {
   const group = GROUPS[card.group];
   const holdTimer = useRef<number>();
+  const hoverTimer = useRef<number>();
   const held = useRef(false);
-  const stopHolding = () => {
+  const stopPreviewTimers = () => {
     if (holdTimer.current !== undefined) window.clearTimeout(holdTimer.current);
+    if (hoverTimer.current !== undefined) window.clearTimeout(hoverTimer.current);
     holdTimer.current = undefined;
+    hoverTimer.current = undefined;
   };
   const beginHolding = () => {
     if (!onInspect || !onClick) return;
     held.current = false;
-    stopHolding();
+    stopPreviewTimers();
     holdTimer.current = window.setTimeout(() => {
       held.current = true;
       onInspect();
-    }, 420);
+    }, 620);
+  };
+  const beginHoverPreview = () => {
+    if (!onInspect || !onClick) return;
+    stopPreviewTimers();
+    hoverTimer.current = window.setTimeout(() => {
+      held.current = true;
+      onInspect();
+    }, 2000);
   };
   return (
     <button
       className={`asset-card ${selected ? 'selected' : ''} ${compact ? 'compact' : ''} ${departing ? 'departing' : ''} ${onInspect ? 'inspectable' : ''}`}
       style={{ '--group': group.color, '--group-ink': group.ink, '--card-index': index ?? 0 } as React.CSSProperties}
-      onClick={(event) => {
+      onClick={() => {
         if (held.current) { held.current = false; return; }
-        if (onInspect && (!onClick || (event.target as HTMLElement).closest('.card-art'))) { onInspect(); return; }
-        onClick?.();
+        if (onClick) { onClick(); return; }
+        onInspect?.();
       }}
       onPointerDown={beginHolding}
-      onPointerUp={stopHolding}
-      onPointerCancel={stopHolding}
-      onPointerLeave={stopHolding}
+      onPointerUp={stopPreviewTimers}
+      onPointerCancel={stopPreviewTimers}
+      onPointerEnter={beginHoverPreview}
+      onPointerLeave={stopPreviewTimers}
       aria-pressed={selected}
       /* The ordinal is the 1-8 keyboard shortcut, so only selectable hand cards get one. */
       aria-label={`${onClick && index !== undefined ? `${index + 1}. ` : ''}${card.name}, ${card.chips + card.bonus} chips`}
@@ -451,13 +463,22 @@ function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
 function CompanionRail({ state }: { state: GameState }) {
   const buddy = COMPANIONS[state.companion];
   const selected = state.selectedIds.length;
-  const message = state.lastPlayerScore
-    ? `${state.lastPlayerScore.handName}: ${money(state.lastPlayerScore.total)}. ${state.companion === 'gemoy' ? 'That is a proper flex.' : 'The numbers agree.'}`
+  const remaining = Math.max(0, marketTarget(state.round, state.difficulty) - state.player.score);
+  const loud = state.lastPlayerScore
+    ? `${state.lastPlayerScore.handName.toUpperCase()} FOR ${money(state.lastPlayerScore.total)}!!! KEEP CRUSHING IT!!!`
     : selected >= 2
-      ? `${selected} deeds on the table. ${state.companion === 'gemoy' ? 'Make it loud.' : 'Check the multiplier.'}`
+      ? `${selected} DEEDS READY!!! STOP THINKING, COMMIT IT!!!`
       : state.player.discardsLeft === 0
-        ? 'No more redraws. Make this hand count.'
-        : `${money(marketTarget(state.round, state.difficulty) - state.player.score)} left. Pick your angle.`;
+        ? 'NO MORE REDRAWS!!! MAKE THIS COUNT!!!'
+        : `${money(remaining)} LEFT!!! BUY, BUILD, BULLDOZE!!!`;
+  const dry = state.lastPlayerScore
+    ? `${state.lastPlayerScore.handName}, ${money(state.lastPlayerScore.total)}. Lumayan. Angka juga bisa bersopan santun.`
+    : selected >= 2
+      ? `${selected} deed sudah dipilih. Kalau berkenan, cek multiplier sebelum gegabah.`
+      : state.player.discardsLeft === 0
+        ? 'Diskon kesempatan sudah habis. Seperti biasa, keputusan tetap milikmu.'
+        : `${money(remaining)} lagi. Pelan saja; pasar tidak ke mana-mana.`;
+  const message = state.companion === 'gemoy' ? loud : dry;
   return <section className="companion-rail" aria-label={`${buddy.name}, your Konco`}>
     <div className="companion-bubble"><b>{buddy.name}</b><span>{message}</span></div>
     <img src={buddy.asset} alt={`${buddy.name}, ${buddy.title}`} />
@@ -535,6 +556,13 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
     <main className="game-screen game-frame">
       <Hud state={state} dispatch={dispatch} />
       <section className="table-layout">
+        <aside className="commentary-panel">
+          <CompanionRail state={state} />
+          <div className="market-log" aria-live="polite">
+            <span>Market desk</span>
+            <p>{busy ? 'Portfolio settling…' : state.events.at(-1)?.message}</p>
+          </div>
+        </aside>
         <section className="play-zone">
           <div className="table-kicker"><span>Jakarta market blind</span><b>Ante {state.round}</b></div>
           <div className="round-track" aria-label={`Hand ${5 - state.player.handsLeft} of 4`}>
@@ -567,12 +595,10 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
           <div className="last-hands">
             <ScoreFormula score={state.lastPlayerScore} label="Your last hand" />
           </div>
-          <div className="event-ticker" aria-live="polite">{busy ? 'The market settles your portfolio…' : state.events.at(-1)?.message}</div>
           <ScoreFormula score={prediction} label="Selected hand" />
         </section>
 
         <aside className="player-panel">
-          <CompanionRail state={state} />
           <div className="player-resource"><span>Hands</span><strong>{state.player.handsLeft}</strong></div>
           <div className="player-resource"><span>Discards</span><strong>{state.player.discardsLeft}</strong></div>
           <div className="player-resource gold"><span>Capital</span><strong>${state.player.cash}</strong></div>
