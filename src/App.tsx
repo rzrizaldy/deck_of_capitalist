@@ -327,11 +327,16 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-const HAND_RECIPES: Record<string, string[]> = {
-  HIGH_ASSET: ['RESIDENTIAL'], PAIR: ['RESIDENTIAL', 'COMMERCIAL'], TWO_PAIRS: ['RESIDENTIAL', 'COMMERCIAL', 'UTILITY', 'TRANSPORT'],
-  THREE_KIND: ['RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL'], STRAIGHT: ['RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL', 'UTILITY', 'TRANSPORT'],
-  FLUSH: ['TRANSPORT', 'TRANSPORT', 'TRANSPORT', 'TRANSPORT', 'TRANSPORT'], FULL_HOUSE: ['RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL', 'UTILITY', 'TRANSPORT'],
-  FOUR_KIND: ['RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL', 'UTILITY'], STRAIGHT_FLUSH: ['TRANSPORT', 'TRANSPORT', 'TRANSPORT', 'TRANSPORT', 'TRANSPORT'],
+const HAND_RECIPES: Record<ScoreBreakdown['hand'], Array<{ group: keyof typeof GROUPS; rank: number }>> = {
+  HIGH_ASSET: [{ group: 'RESIDENTIAL', rank: 9 }],
+  PAIR: [{ group: 'RESIDENTIAL', rank: 5 }, { group: 'COMMERCIAL', rank: 5 }],
+  TWO_PAIRS: [{ group: 'RESIDENTIAL', rank: 3 }, { group: 'COMMERCIAL', rank: 3 }, { group: 'UTILITY', rank: 7 }, { group: 'TRANSPORT', rank: 7 }],
+  THREE_KIND: [{ group: 'RESIDENTIAL', rank: 6 }, { group: 'COMMERCIAL', rank: 6 }, { group: 'INDUSTRIAL', rank: 6 }],
+  STRAIGHT: [{ group: 'RESIDENTIAL', rank: 3 }, { group: 'COMMERCIAL', rank: 4 }, { group: 'INDUSTRIAL', rank: 5 }, { group: 'UTILITY', rank: 6 }, { group: 'TRANSPORT', rank: 7 }],
+  FLUSH: [{ group: 'TRANSPORT', rank: 2 }, { group: 'TRANSPORT', rank: 4 }, { group: 'TRANSPORT', rank: 6 }, { group: 'TRANSPORT', rank: 8 }],
+  FULL_HOUSE: [{ group: 'RESIDENTIAL', rank: 7 }, { group: 'COMMERCIAL', rank: 7 }, { group: 'INDUSTRIAL', rank: 7 }, { group: 'UTILITY', rank: 3 }, { group: 'TRANSPORT', rank: 3 }],
+  FOUR_KIND: [{ group: 'RESIDENTIAL', rank: 4 }, { group: 'COMMERCIAL', rank: 4 }, { group: 'INDUSTRIAL', rank: 4 }, { group: 'UTILITY', rank: 4 }],
+  STRAIGHT_FLUSH: [{ group: 'TRANSPORT', rank: 3 }, { group: 'TRANSPORT', rank: 4 }, { group: 'TRANSPORT', rank: 5 }, { group: 'TRANSPORT', rank: 6 }, { group: 'TRANSPORT', rank: 7 }],
 };
 
 /**
@@ -344,10 +349,10 @@ function PortfolioRecipe({ hand }: { hand: keyof typeof HANDS }) {
   return (
     <div className="portfolio-recipe" aria-label={`${localizedHand(hand, locale)} ${tr(locale, 'card pattern', 'pola kartu')} `}>
       <div className="recipe-cards">
-        {groups.map((group, index) => {
-          const visual = GROUPS[group as keyof typeof GROUPS];
-          return <span key={`${group}-${index}`} style={{ '--recipe-color': visual.color, '--recipe-ink': visual.ink } as React.CSSProperties}>
-            {localizedGroup(group as keyof typeof GROUPS, locale).slice(0, 1)}
+        {groups.map(({ group, rank }, index) => {
+          const visual = GROUPS[group];
+          return <span key={`${group}-${rank}-${index}`} style={{ '--recipe-color': visual.color, '--recipe-ink': visual.ink } as React.CSSProperties}>
+            <b>{rank}</b><small>{localizedGroup(group, locale).slice(0, 1)}</small>
           </span>;
         })}
       </div>
@@ -368,7 +373,7 @@ function ScoringExample() {
       <div className="example-cards">
         <span style={swatch}>3<b>15</b></span><span style={swatch}>4<b>20</b></span><span style={swatch}>5<b>25</b></span><span style={swatch}>6<b>30</b></span><span style={swatch}>7<b>35</b></span>
       </div>
-      <figcaption>{tr(locale, 'Five consecutive ranks make a Straight. Five in the same class make a Flush. Do both and it is a Straight Flush.', 'Lima rank berurutan membentuk Koridor. Lima kartu satu kelas membentuk Satu Kelas. Dapatkan keduanya untuk Koridor Prime.')}</figcaption>
+      <figcaption>{tr(locale, 'Five consecutive ranks make a Straight. Four cards in the same class make a Flush. Do both with five cards and it is a Straight Flush.', 'Lima peringkat berurutan membentuk Koridor. Empat kartu satu kelas membentuk Satu Kelas. Dapatkan keduanya dengan lima kartu untuk Koridor Utama.')}</figcaption>
       <div className="example-maths">
         <span><small>{tr(locale, 'chips', 'chip')}</small><strong>125</strong></span>
         <i>×</i>
@@ -409,7 +414,7 @@ function Guide({ onClose }: { onClose: () => void }) {
           <p className="guide-note">{tr(locale, 'Every class holds ranks 1–10. Higher patterns are rarer and multiply much harder; the swatches show the required classes.', 'Setiap kelas memiliki peringkat 1–10. Pola tinggi lebih langka dan pengalinya lebih besar; kotak warna menunjukkan kelas yang diperlukan.')}</p>
           <div className="rank-list">
             {Object.entries(HANDS).map(([key, hand]) => (
-              <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{localizedHand(key as keyof typeof HANDS, locale)}</strong><small>{locale === 'en' ? ({ HIGH_ASSET: 'No pattern; highest rank leads.', PAIR: 'Two matching ranks.', TWO_PAIRS: 'Two different matching ranks.', THREE_KIND: 'Three matching ranks.', STRAIGHT: 'Five consecutive ranks.', FLUSH: 'Five cards in one class.', FULL_HOUSE: 'Three matching ranks plus a pair.', FOUR_KIND: 'Four matching ranks.', STRAIGHT_FLUSH: 'Five consecutive ranks in one class.' } as Record<string, string>)[key] : hand.description}</small></span><b>×{hand.multiplier}</b></div>
+              <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{localizedHand(key as keyof typeof HANDS, locale)}</strong><small>{locale === 'en' ? ({ HIGH_ASSET: 'No pattern; highest rank leads.', PAIR: 'Two matching ranks.', TWO_PAIRS: 'Two different matching ranks.', THREE_KIND: 'Three matching ranks.', STRAIGHT: 'Five consecutive ranks.', FLUSH: 'Four or five cards in one class.', FULL_HOUSE: 'Three matching ranks plus a pair.', FOUR_KIND: 'Four matching ranks.', STRAIGHT_FLUSH: 'Five consecutive ranks in one class.' } as Record<string, string>)[key] : hand.description}</small></span><b>×{hand.multiplier}</b></div>
             ))}
           </div>
           <h3>{tr(locale, 'Keyboard', 'Papan tombol')}</h3>

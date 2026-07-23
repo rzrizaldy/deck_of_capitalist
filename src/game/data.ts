@@ -14,7 +14,7 @@ export const HANDS: Record<HandKey, { name: string; multiplier: number; descript
   TWO_PAIRS: { name: 'Dua Pasang', multiplier: 3, description: 'Dua pasangan peringkat berbeda.' },
   THREE_KIND: { name: 'Tiga Serupa', multiplier: 4, description: 'Tiga aset dengan peringkat sama.' },
   STRAIGHT: { name: 'Koridor', multiplier: 6, description: 'Lima peringkat berurutan, kelas bebas.' },
-  FLUSH: { name: 'Satu Kelas', multiplier: 7, description: 'Lima aset dari kelas yang sama.' },
+  FLUSH: { name: 'Satu Kelas', multiplier: 7, description: 'Empat atau lima aset dari kelas yang sama.' },
   FULL_HOUSE: { name: 'Kawasan Lengkap', multiplier: 9, description: 'Tiga serupa ditambah satu pasangan.' },
   FOUR_KIND: { name: 'Empat Serupa', multiplier: 12, description: 'Empat aset dengan peringkat sama.' },
   STRAIGHT_FLUSH: { name: 'Koridor Utama', multiplier: 16, description: 'Lima peringkat berurutan dalam satu kelas.' },

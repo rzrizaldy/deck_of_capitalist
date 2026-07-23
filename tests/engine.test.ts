@@ -46,6 +46,7 @@ describe('authoritative scoring engine', () => {
     [[card('RESIDENTIAL', 4), card('COMMERCIAL', 4), card('UTILITY', 7), card('TRANSPORT', 7)], 'TWO_PAIRS'],
     [[card('RESIDENTIAL', 4), card('COMMERCIAL', 4), card('UTILITY', 4)], 'THREE_KIND'],
     [[card('RESIDENTIAL', 3), card('COMMERCIAL', 4), card('UTILITY', 5), card('TRANSPORT', 6), card('INDUSTRIAL', 7)], 'STRAIGHT'],
+    [[card('RESIDENTIAL', 1), card('RESIDENTIAL', 3), card('RESIDENTIAL', 5), card('RESIDENTIAL', 7)], 'FLUSH'],
     [[card('RESIDENTIAL', 1), card('RESIDENTIAL', 3), card('RESIDENTIAL', 5), card('RESIDENTIAL', 7), card('RESIDENTIAL', 9)], 'FLUSH'],
     [[card('RESIDENTIAL', 4), card('COMMERCIAL', 4), card('UTILITY', 4), card('TRANSPORT', 7), card('INDUSTRIAL', 7)], 'FULL_HOUSE'],
     [[card('RESIDENTIAL', 4), card('COMMERCIAL', 4), card('UTILITY', 4), card('TRANSPORT', 4)], 'FOUR_KIND'],

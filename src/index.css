@@ -808,11 +808,13 @@ button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
 .recipe-cards span {
   --recipe-color: #777;
   width: calc(20 * var(--u, 1px)); height: calc(25 * var(--u, 1px)); margin-left: calc(-5 * var(--u, 1px));
-  display: grid; place-items: center;
+  display: grid; place-items: center; align-content: center;
   border: 1px solid color-mix(in srgb, var(--recipe-color), white 30%); border-radius: 4px;
   color: var(--recipe-ink); background: linear-gradient(145deg, color-mix(in srgb, var(--recipe-color), #05080d 20%), var(--recipe-color));
   box-shadow: 0 2px 6px rgba(0, 0, 0, .36); font: 700 var(--t-xs, .6rem) 'DM Mono', monospace;
 }
+.recipe-cards span b { font: 800 var(--t-xs, .6rem) 'DM Mono', monospace; line-height: .9; }
+.recipe-cards span small { font: 700 calc(var(--t-xs, .6rem) * .72) 'DM Mono', monospace; line-height: .9; opacity: .8; }
 .recipe-cards span:first-child { margin-left: 0; }
 
 /* Worked scoring example: the one thing the guide has to actually teach. */

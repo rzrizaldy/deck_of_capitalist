@@ -115,7 +115,8 @@ export function identifyHand(cards: Card[]): HandKey {
   const ranks = new Map<number, number>();
   cards.forEach((card) => ranks.set(card.rank, (ranks.get(card.rank) ?? 0) + 1));
   const multiplicities = [...ranks.values()].sort((a, b) => b - a);
-  const flush = cards.length === 5 && new Set(cards.map((card) => card.group)).size === 1;
+  // A four-card mono-class portfolio is a Flush; a fifth card of that class still qualifies.
+  const flush = cards.length >= 4 && new Set(cards.map((card) => card.group)).size === 1;
   const values = [...ranks.keys()].sort((a, b) => a - b);
   const straight = cards.length === 5 && values.length === 5 && values.every((rank, index) => index === 0 || rank === values[index - 1] + 1);
   if (straight && flush) return 'STRAIGHT_FLUSH';
