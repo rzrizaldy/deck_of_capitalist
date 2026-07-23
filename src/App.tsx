@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   BookOpen, Building2, Coins, Crown, Music, RotateCcw,
-  ArrowDownUp, Eye, Maximize2, Minimize2, Sparkles, Target, Trash2, Trophy, Volume2, VolumeX, Wrench, X,
+  ArrowDownUp, Eye, Maximize2, Minimize2, Settings, Sparkles, Target, Trash2, Trophy, Volume2, VolumeX, Wrench, X,
 } from 'lucide-react';
 import {
   getVolume, isBgmEnabled, playCompanionSfx, playSound, pulseHaptic, setBgmEnabled, setVolume,
@@ -11,7 +11,7 @@ import { CARD_TEMPLATES, GROUPS, HANDS } from './game/data';
 import { allCards, deckSize, MARKET_DIFFICULTY, marketTarget, MAX_TYCOONS, MIN_DECK_SIZE, priceFor, scoreHand } from './game/engine';
 import { clearSave, loadSave, migrateLegacySave, recordHighScore, saveGame } from './game/persistence';
 import { gameReducer, initialState } from './game/reducer';
-import type { Card, Consumable, GameState, ScoreBreakdown, Tycoon } from './game/types';
+import type { Card, Consumable, Difficulty, GameState, GroupKey, ScoreBreakdown, Tycoon } from './game/types';
 
 type Dispatch = React.Dispatch<Parameters<typeof gameReducer>[1]>;
 type Locale = 'id' | 'en';
@@ -118,26 +118,42 @@ function AudioControls({ state, dispatch, compact = false }: { state: GameState;
       >
         {state.muted ? <VolumeX /> : <Volume2 />}{!compact && <span>Sound</span>}
       </button>
-      <input
-        className="volume-slider"
-        type="range"
-        min={0}
-        max={100}
-        step={5}
-        value={Math.round(volume * 100)}
-        onChange={(event) => changeVolume(Number(event.target.value) / 100)}
-        aria-label="Volume"
-        title={`Volume ${Math.round(volume * 100)}%`}
-      />
-      <button
-        className={`${compact ? 'icon-button' : ''} ${bgm ? '' : 'off'}`}
-        onClick={toggleBgm}
-        aria-pressed={bgm}
-        aria-label={bgm ? 'Turn background music off' : 'Turn background music on'}
-      >
-        <Music />{!compact && <span>Music</span>}
-      </button>
+      {!compact && (
+        <>
+          <input
+            className="volume-slider"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(volume * 100)}
+            onChange={(event) => changeVolume(Number(event.target.value) / 100)}
+            aria-label="Volume"
+            title={`Volume ${Math.round(volume * 100)}%`}
+          />
+          <button
+            className={bgm ? '' : 'off'}
+            onClick={toggleBgm}
+            aria-pressed={bgm}
+            aria-label={bgm ? 'Turn background music off' : 'Turn background music on'}
+          >
+            <Music /><span>Music</span>
+          </button>
+        </>
+      )}
     </div>
+  );
+}
+
+function SettingsPanel({ state, dispatch, onClose }: { state: GameState; dispatch: Dispatch; onClose: () => void }) {
+  const locale = useLocale();
+  return (
+    <Modal title={tr(locale, 'Settings', 'Pengaturan')} onClose={onClose} className="settings-modal">
+      <section className="settings-section">
+        <h3>{tr(locale, 'Sound & music', 'Suara & musik')}</h3>
+        <AudioControls state={state} dispatch={dispatch} />
+      </section>
+    </Modal>
   );
 }
 
@@ -285,10 +301,11 @@ function TycoonPreview({ tycoon, onClose }: { tycoon: Tycoon; onClose: () => voi
 function TycoonCard({ tycoon, compact = false, bought = false, children, onInspect }: {
   tycoon: Tycoon; compact?: boolean; bought?: boolean; children?: React.ReactNode; onInspect?: () => void;
 }) {
+  const locale = useLocale();
   const content = <>
     <img src={`/assets/tycoons/${tycoon.artId ?? tycoon.id}.webp`} alt={`${tycoon.name} tycoon helper`} loading="lazy" />
     <div className="tycoon-card-copy">
-      <span><Crown aria-hidden="true" /> Tycoon</span>
+      <span><Crown aria-hidden="true" /> {tr(locale, 'Tycoon', 'Taipan')}</span>
       <h3>{tycoon.name}</h3>
       {!compact && <p>{tycoon.description}</p>}
       {children}
@@ -300,26 +317,36 @@ function TycoonCard({ tycoon, compact = false, bought = false, children, onInspe
 
 function ScoreFormula({ score, label }: { score: ScoreBreakdown | null; label: string }) {
   const locale = useLocale();
-  if (!score) return <div className="score-formula muted"><span>{label}</span><strong>Select up to five deeds</strong></div>;
+  if (!score) {
+    return (
+      <div className="score-formula muted">
+        <span className="score-hand"><small>{label}</small></span>
+        <strong className="score-math">{tr(locale, 'Select up to five deeds', 'Pilih sampai lima aset')}</strong>
+      </div>
+    );
+  }
   return (
     <div className="score-formula">
-      <span>{label} · {localizedHand(score.hand, locale)}</span>
-      <strong>
-        {score.cardChips + score.bonusChips}
-        <small> × </small>
-        {score.baseMultiplier + score.bonusMultiplier}
-        {score.multiplicative !== 1 && <em> × {score.multiplicative.toFixed(2)}</em>}
+      <span className="score-hand">
+        <small>{label}</small>
+        <em>{localizedHand(score.hand, locale)}</em>
+      </span>
+      <strong className="score-math" aria-label={`${score.cardChips + score.bonusChips} times ${score.baseMultiplier + score.bonusMultiplier} equals ${money(score.total)}`}>
+        <span>{score.cardChips + score.bonusChips}</span>
+        <i>×</i>
+        <span>{score.baseMultiplier + score.bonusMultiplier}</span>
+        {score.multiplicative !== 1 && <em>× {score.multiplicative.toFixed(2)}</em>}
         <b>= {money(score.total)}</b>
       </strong>
-      {score.notes.length > 0 && <small>{score.notes.join(' · ')}</small>}
+      {score.notes.length > 0 && <small className="score-notes">{score.notes.join(' · ')}</small>}
     </div>
   );
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, onClose, children, className = '' }: { title: string; onClose: () => void; children: React.ReactNode; className?: string }) {
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`modal ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
         <header><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label="Close"><X /></button></header>
         <div className="modal-body">{children}</div>
       </section>
@@ -373,7 +400,7 @@ function ScoringExample() {
       <div className="example-cards">
         <span style={swatch}>3<b>15</b></span><span style={swatch}>4<b>20</b></span><span style={swatch}>5<b>25</b></span><span style={swatch}>6<b>30</b></span><span style={swatch}>7<b>35</b></span>
       </div>
-      <figcaption>{tr(locale, 'Five consecutive ranks make a Straight. Four cards in the same class make a Flush. Do both with five cards and it is a Straight Flush.', 'Lima peringkat berurutan membentuk Straight. Empat kartu satu kelas membentuk Flush. Dapatkan keduanya dengan lima kartu untuk Straight Flush.')}</figcaption>
+      <figcaption>{tr(locale, 'Five consecutive ranks make a Straight. Four cards in the same class make a Flush. Do both with five cards and it is a Straight Flush.', 'Lima rank berurutan = Straight. Empat kartu satu kelas = Flush. Dua-duanya dengan lima kartu = Straight Flush.')}</figcaption>
       <div className="example-maths">
         <span><small>{tr(locale, 'chips', 'chip')}</small><strong>125</strong></span>
         <i>×</i>
@@ -381,7 +408,7 @@ function ScoringExample() {
         <i>=</i>
         <span className="example-total"><small>{tr(locale, 'score', 'skor')}</small><strong>2,000</strong></span>
       </div>
-      <figcaption>{tr(locale, 'Ranks are 1–10 in every class. Build runs for Straights, classes for Flushes, or matching ranks for pairs and houses.', 'Setiap kelas punya peringkat 1–10. Susun peringkat untuk Koridor, kumpulkan kelas untuk Satu Kelas, atau samakan peringkat untuk Pasangan dan Kawasan Lengkap.')}</figcaption>
+      <figcaption>{tr(locale, 'Ranks are 1–10 in every class. Build runs for Straights, classes for Flushes, or matching ranks for pairs and houses.', 'Tiap kelas punya rank 1–10. Urut = Straight, satu kelas = Flush, sama rank = Pair/Full House.')}</figcaption>
     </figure>
   );
 }
@@ -389,24 +416,24 @@ function ScoringExample() {
 function Guide({ onClose }: { onClose: () => void }) {
   const locale = useLocale();
   return (
-    <Modal title={tr(locale, 'The Market Ledger', 'Buku Besar Pasar')} onClose={onClose}>
+    <Modal title={tr(locale, 'The Market Ledger', 'Buku main')} onClose={onClose} className="guide-modal">
       <div className="guide-grid">
         <section>
-          <h3>{tr(locale, 'Scoring, in one hand', 'Skor, dalam satu tangan')}</h3>
+          <h3>{tr(locale, 'Scoring, in one hand', 'Cara ngehitung skor')}</h3>
           <ScoringExample />
-          <h3>{tr(locale, 'Each market', 'Setiap pasar')}</h3>
+          <h3>{tr(locale, 'Each market', 'Tiap pasar')}</h3>
           <ol>
-            <li>{tr(locale, 'You get four hands to beat the market target, and three discards to fix bad draws.', 'Kamu punya empat tangan untuk menembus target, dan tiga buang kartu untuk memperbaiki tangan buruk.')}</li>
-            <li>{tr(locale, 'Clear the target and you are paid, then the Night Market opens to upgrade your deck.', 'Tembus target, raih bayaran, lalu Pasar Malam terbuka untuk memperkuat dekmu.')}</li>
-            <li>{tr(locale, 'Miss it and the run ends. Eight markets in a row wins the city.', 'Gagal dan permainan berakhir. Taklukkan delapan pasar untuk menguasai kota.')}</li>
+            <li>{tr(locale, 'You get four hands to beat the market target, and three discards to fix bad draws.', 'Empat tangan buat tembus target, tiga kali buang kalau draw-nya jelek.')}</li>
+            <li>{tr(locale, 'Clear the target and you are paid, then the Night Market opens to upgrade your deck.', 'Tembus target = dibayar, terus Pasar Malam kebuka buat nge-boost dek.')}</li>
+            <li>{tr(locale, 'Miss it and the run ends. Eight markets in a row wins the city.', 'Gagal = run selesai. Lolos delapan pasar = kota jadi milikmu.')}</li>
           </ol>
-          <h3>{tr(locale, 'Words you will see', 'Istilah penting')}</h3>
+          <h3>{tr(locale, 'Words you will see', 'Istilah yang sering muncul')}</h3>
           <dl className="glossary">
-            <div><dt>{tr(locale, 'Deed', 'Aset')}</dt><dd>{tr(locale, 'One property card. Its number is its chip value.', 'Satu kartu properti. Angkanya adalah nilai chip.')}</dd></div>
-            <div><dt>{tr(locale, 'Group', 'Grup')}</dt><dd>{tr(locale, 'Deeds sharing a colour. Matching groups makes multipliers grow.', 'Aset yang berbagi warna. Menyamakan grup membuat multiplier naik.')}</dd></div>
-            <div><dt>{tr(locale, 'Tycoon', 'Taipan')}</dt><dd>{tr(locale, 'A hired helper that adds chips or multiplier whenever its condition is met.', 'Rekan yang menambah chip atau pengali saat syaratnya terpenuhi.')}</dd></div>
-            <div><dt>{tr(locale, 'Renovate', 'Renovasi')}</dt><dd>{tr(locale, 'Pay to give one deed +5 chips, permanently.', 'Bayar untuk memberi satu aset +5 chip secara permanen.')}</dd></div>
-            <div><dt>{tr(locale, 'Liquidate', 'Likuidasi')}</dt><dd>{tr(locale, 'Destroy one deed for $1. A smaller deck draws your best cards more often.', 'Hancurkan satu aset demi $1. Dek lebih ramping lebih sering menarik kartu terbaik.')}</dd></div>
+            <div><dt>{tr(locale, 'Deed', 'Aset')}</dt><dd>{tr(locale, 'One property card. Its number is its chip value.', 'Satu kartu properti. Angkanya = nilai chip.')}</dd></div>
+            <div><dt>{tr(locale, 'Group', 'Grup')}</dt><dd>{tr(locale, 'Deeds sharing a colour. Matching groups makes multipliers grow.', 'Kartu sewarna. Satu warna = multiplier naik.')}</dd></div>
+            <div><dt>{tr(locale, 'Tycoon', 'Taipan')}</dt><dd>{tr(locale, 'A hired helper that adds chips or multiplier whenever its condition is met.', 'Rekan bayaran yang nambah chip atau pengali kalau syaratnya kepenuhi.')}</dd></div>
+            <div><dt>{tr(locale, 'Renovate', 'Renov')}</dt><dd>{tr(locale, 'Pay to give one deed +5 chips, permanently.', 'Bayar biar satu aset +5 chip, permanen.')}</dd></div>
+            <div><dt>{tr(locale, 'Liquidate', 'Jual')}</dt><dd>{tr(locale, 'Destroy one deed for $1. A smaller deck draws your best cards more often.', 'Buang satu aset, dapat $1. Dek lebih tipis = kartu bagus lebih sering keluar.')}</dd></div>
           </dl>
         </section>
         <section>
@@ -417,8 +444,8 @@ function Guide({ onClose }: { onClose: () => void }) {
               <div key={key} className="rank-row"><PortfolioRecipe hand={key as keyof typeof HANDS} /><span><strong>{localizedHand(key as keyof typeof HANDS, locale)}</strong><small>{locale === 'en' ? ({ HIGH_ASSET: 'No pattern; highest rank leads.', PAIR: 'Two matching ranks.', TWO_PAIRS: 'Two different matching ranks.', THREE_KIND: 'Three matching ranks.', STRAIGHT: 'Five consecutive ranks.', FLUSH: 'Four or five cards in one class.', FULL_HOUSE: 'Three matching ranks plus a pair.', FOUR_KIND: 'Four matching ranks.', STRAIGHT_FLUSH: 'Five consecutive ranks in one class.' } as Record<string, string>)[key] : hand.description}</small></span><b>×{hand.multiplier}</b></div>
             ))}
           </div>
-          <h3>{tr(locale, 'Keyboard', 'Papan tombol')}</h3>
-          <p>{tr(locale, '1–8 select cards · Enter commit · D discard · M mute', '1–8 pilih kartu · Enter mainkan · D buang · M senyap')}</p>
+          <h3>{tr(locale, 'Keyboard', 'Keyboard')}</h3>
+          <p>{tr(locale, '1–8 select cards · Enter commit · D discard · M mute', '1–8 pilih · Enter main · D buang · M mute')}</p>
         </section>
       </div>
     </Modal>
@@ -428,14 +455,22 @@ function Guide({ onClose }: { onClose: () => void }) {
 function Compendium({ onClose }: { onClose: () => void }) {
   const locale = useLocale();
   const [inspectedCard, setInspectedCard] = useState<Card | null>(null);
+  const collectionGroups: GroupKey[] = ['COMMERCIAL', 'INDUSTRIAL', 'RESIDENTIAL', 'UTILITY', 'TRANSPORT'];
   return (
-    <Modal title={tr(locale, 'Property Compendium', 'Koleksi Aset')} onClose={onClose}>
-      <p className="compendium-hint">{tr(locale, 'Click a deed illustration to inspect it full size.', 'Klik ilustrasi aset untuk melihatnya dalam ukuran penuh.')}</p>
+    <Modal title={tr(locale, 'Property Compendium', 'Katalog aset')} onClose={onClose} className="compendium-modal">
+      <p className="compendium-hint">{tr(locale, 'Five category columns, Ace on top and 2 at the bottom. Click any deed for its full detail.', 'Lima kolom kategori. As di atas, 2 di bawah. Klik buat detail.')}</p>
       <div className="compendium">
-        {CARD_TEMPLATES.map((template, index) => {
-          const card = { ...template, instanceId: `catalog-${index}`, bonus: 0 };
-          return <AssetCard key={template.id} card={card} compact onInspect={() => setInspectedCard(card)} />;
-        })}
+        {collectionGroups.map((group) => (
+          <section className="collection-column" key={group} style={{ '--collection-color': GROUPS[group].color } as React.CSSProperties}>
+            <header><strong>{localizedGroup(group, locale)}</strong><small>A → 2</small></header>
+            <div className="collection-stack">
+              {CARD_TEMPLATES.filter((template) => template.group === group).sort((a, b) => b.rank - a.rank).map((template, index) => {
+                const card = { ...template, instanceId: `catalog-${group}-${index}`, bonus: 0 };
+                return <AssetCard key={template.id} card={card} compact onInspect={() => setInspectedCard(card)} />;
+              })}
+            </div>
+          </section>
+        ))}
       </div>
       {inspectedCard && <CardPreview card={inspectedCard} onClose={() => setInspectedCard(null)} />}
     </Modal>
@@ -449,6 +484,7 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch, locale, setLoc
   const [companion, setCompanion] = useState<GameState['companion']>('gemoy');
   const [guide, setGuide] = useState(false);
   const [compendium, setCompendium] = useState(false);
+  const [settings, setSettings] = useState(false);
   return (
     <main className="menu-screen game-frame">
       <div className="menu-shade" />
@@ -457,23 +493,24 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch, locale, setLoc
         <div className="title-lockup">
           <img src="/assets/title.png" alt="Deck of Capitalist" />
         </div>
-        <p className="eyebrow">{tr(locale, 'Monopoly your archipelago', 'Kuasai kepulauanmu')}</p>
-        <h1>{tr(locale, 'Dominate 58%.', 'Dominasi 58%.')}</h1>
-        <p className="menu-copy">{tr(locale, 'Be a ruthless tycoon.', 'Jadilah taipan tanpa ampun.')}</p>
-        <div className="high-score"><Trophy /> {tr(locale, 'Best run', 'Rekor permainan')} <strong>{money(highScore)}</strong></div>
+        <p className="eyebrow">{tr(locale, 'Monopoly the archipelago.', 'Kuasai kepulauannya.')}</p>
+        <h1>{tr(locale, 'Own your 58%.', 'Ambil 58%-mu.')}</h1>
+        <p className="menu-copy">{tr(locale, 'Play dirty. Win big.', 'Main kotor. Menang besar.')}</p>
+        <div className="high-score"><Trophy /> {tr(locale, 'Best run', 'Rekor terbaik')} <strong>{money(highScore)}</strong></div>
       </section>
       <section className="menu-panel">
-        {legacyCleared && <p className="notice">{tr(locale, 'The incompatible prototype save was retired. Your legacy high score remains.', 'Simpan prototipe lama tidak kompatibel telah dihapus. Rekor lamamu tetap tersimpan.')}</p>}
+        {legacyCleared && <p className="notice">{tr(locale, 'The incompatible prototype save was retired. Your legacy high score remains.', 'Save lama udah diganti. Rekornya tetap aman.')}</p>}
         <fieldset className="difficulty-picker">
-          <legend>{tr(locale, 'Market difficulty · changes target scores only', 'Tingkat pasar · hanya mengubah target skor')}</legend>
+          <legend>{tr(locale, 'Market difficulty · changes target scores only', 'Kesulitan · cuma ngubah target')}</legend>
           {(['casual', 'trader', 'tycoon'] as Difficulty[]).map((item) => (
             <button key={item} className={difficulty === item ? 'active' : ''} onClick={() => setDifficulty(item)} type="button">
-              <strong>{MARKET_DIFFICULTY[item].label}</strong><small>{MARKET_DIFFICULTY[item].description}</small>
+              <strong>{tr(locale, MARKET_DIFFICULTY[item].label, ({ casual: 'Jalanan', trader: 'Pasar', tycoon: 'Kelas berat' } as const)[item])}</strong>
+              <small>{tr(locale, MARKET_DIFFICULTY[item].description, ({ casual: 'Target 62%', trader: 'Target normal', tycoon: 'Target 250%' } as const)[item])}</small>
             </button>
           ))}
         </fieldset>
         <fieldset className="companion-picker">
-          <legend>Choose your Konco</legend>
+          <legend>{tr(locale, 'Choose your Konco', 'Pilih Konco')}</legend>
           {(Object.entries(COMPANIONS) as [GameState['companion'], typeof COMPANIONS[keyof typeof COMPANIONS]][]).map(([id, buddy]) => (
             <button key={id} className={companion === id ? 'active' : ''} onClick={() => setCompanion(id)} type="button" aria-pressed={companion === id}>
               <img src={buddy.asset} alt="" />
@@ -486,13 +523,14 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch, locale, setLoc
           {saved && <button className="secondary large" onClick={() => dispatch({ type: 'LOAD', state: saved })}>{tr(locale, 'Continue round', 'Lanjut ronde')} {saved.round}</button>}
         </div>
         <div className="menu-subactions">
-          <button onClick={() => setGuide(true)}><BookOpen /> <span>{tr(locale, 'How to play', 'Cara bermain')}</span></button>
-          <button onClick={() => setCompendium(true)}><Building2 /> <span>Cards</span></button>
-          <AudioControls state={state} dispatch={dispatch} />
+          <button onClick={() => setGuide(true)}><BookOpen /> <span>{tr(locale, 'How to play', 'Cara main')}</span></button>
+          <button onClick={() => setCompendium(true)}><Building2 /> <span>{tr(locale, 'Cards', 'Kartu')}</span></button>
+          <button onClick={() => setSettings(true)}><Settings /> <span>{tr(locale, 'Settings', 'Pengaturan')}</span></button>
         </div>
       </section>
       {guide && <Guide onClose={() => setGuide(false)} />}
       {compendium && <Compendium onClose={() => setCompendium(false)} />}
+      {settings && <SettingsPanel state={state} dispatch={dispatch} onClose={() => setSettings(false)} />}
     </main>
   );
 }
@@ -500,16 +538,17 @@ function Menu({ state, saved, highScore, legacyCleared, dispatch, locale, setLoc
 function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
   const locale = useLocale();
   const [guide, setGuide] = useState(false);
+  const [settings, setSettings] = useState(false);
   const target = marketTarget(state.round, state.difficulty, state.modifier);
   return (
     <>
       <header className="game-hud">
-        <div className="round-mark"><span>Market round</span><strong>{state.round}<small>/8</small></strong></div>
+        <div className="round-mark"><span>{tr(locale, 'Market round', 'Ronde pasar')}</span><strong>{state.round}<small>/8</small></strong></div>
         <div className="market-progress" aria-label="Market progress">
           <div className="progress-figures">
-            <span>Portfolio</span>
+            <span>{tr(locale, 'Portfolio', 'Portofolio')}</span>
             <strong><AnimatedNumber value={state.player.score} active /></strong>
-            <em>of</em>
+            <em>{tr(locale, 'of', 'dari')}</em>
             <span>{tr(locale, 'Target', 'Target')}</span>
             <b>{money(target)}</b>
           </div>
@@ -517,12 +556,14 @@ function Hud({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
         </div>
         <div className="hud-actions">
           <AudioControls state={state} dispatch={dispatch} compact />
+          <button className="icon-button" onClick={() => setSettings(true)} aria-label={tr(locale, 'Settings', 'Pengaturan')}><Settings /></button>
           <FullscreenButton />
-          <button className="icon-button" onClick={() => setGuide(true)} aria-label="Open rules"><BookOpen /></button>
-          <button className="icon-button" onClick={() => dispatch({ type: 'GO_MENU' })} aria-label="Return to menu"><X /></button>
+          <button className="icon-button" onClick={() => setGuide(true)} aria-label={tr(locale, 'Open rules', 'Buka aturan')}><BookOpen /></button>
+          <button className="icon-button" onClick={() => dispatch({ type: 'GO_MENU' })} aria-label={tr(locale, 'Return to menu', 'Kembali ke menu')}><X /></button>
         </div>
       </header>
       {guide && <Guide onClose={() => setGuide(false)} />}
+      {settings && <SettingsPanel state={state} dispatch={dispatch} onClose={() => setSettings(false)} />}
     </>
   );
 }
@@ -543,9 +584,9 @@ function Intro({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
       {/* The first three things the player will actually touch, in order. The
           Night Market is deliberately left out — they meet it when they win. */}
       <ul className="intro-points">
-        <li><Building2 aria-hidden="true" /><span>{tr(locale, 'Tap one to five deeds, then commit. Deeds of the same colour score far harder together.', 'Pilih satu sampai lima aset, lalu mainkan. Aset dengan warna sama menghasilkan skor jauh lebih besar.')}</span></li>
-        <li><RotateCcw aria-hidden="true" /><span>{tr(locale, 'Bad draw? Discard up to three times to swap cards for new ones.', 'Kartu jelek? Buang kartu sampai tiga kali untuk menarik kartu baru.')}</span></li>
-        <li><Target aria-hidden="true" /><span>{tr(locale, 'The bar at the top tracks how close you are. Run out of hands short of the target and the run ends.', 'Bar di atas menunjukkan jarak ke target. Kehabisan tangan sebelum target berarti permainan berakhir.')}</span></li>
+        <li><Building2 aria-hidden="true" /><span>{tr(locale, 'Tap one to five deeds, then commit. Deeds of the same colour score far harder together.', 'Pilih satu sampai lima aset, lalu main. Warna sama = skor jauh lebih gede.')}</span></li>
+        <li><RotateCcw aria-hidden="true" /><span>{tr(locale, 'Bad draw? Discard up to three times to swap cards for new ones.', 'Draw jelek? Buang sampai tiga kali buat ganti.')}</span></li>
+        <li><Target aria-hidden="true" /><span>{tr(locale, 'The bar at the top tracks how close you are. Run out of hands short of the target and the run ends.', 'Bar di atas = jarak ke target. Habis tangan sebelum tembus = run selesai.')}</span></li>
       </ul>
       <div className="intro-companion"><img src={buddy.asset} alt="" /><p><b>{buddy.name}</b><span>“{buddy.intro}”</span></p></div>
       <div className="intro-actions">
@@ -715,13 +756,13 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
         <aside className="commentary-panel">
           <CompanionRail state={state} />
           <div className="market-log" aria-live="polite">
-            <span>Market desk</span>
+            <span>{tr(locale, 'Market desk', 'Meja pasar')}</span>
             <p>{busy
               ? tr(locale, 'Portfolio settling…', 'Portofolio sedang dihitung…')
               : state.lastPlayerScore
                 ? tr(locale,
-                  `You scored ${money(state.lastPlayerScore.total)} with ${localizedHand(state.lastPlayerScore.hand, locale)}.`,
-                  `Kamu mencetak ${money(state.lastPlayerScore.total)} lewat ${localizedHand(state.lastPlayerScore.hand, locale)}.`)
+                  `You hit ${money(state.lastPlayerScore.total)} with ${localizedHand(state.lastPlayerScore.hand, locale)}.`,
+                  `Ngehit ${money(state.lastPlayerScore.total)} lewat ${localizedHand(state.lastPlayerScore.hand, locale)}.`)
                 : state.events.at(-1)?.message}</p>
           </div>
         </aside>
@@ -741,15 +782,16 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             <img src={`/assets/modifiers/${state.modifier.art}.webp`} alt="" />
             <span><b>{modifier.name}</b>{modifier.summary}</span>
           </div>
-          <section className="tycoon-shelf" aria-label="Your Tycoon helpers">
+          <ScoreFormula score={prediction} label={tr(locale, 'Selected hand', 'Tangan terpilih')} />
+          <section className="tycoon-shelf" aria-label={tr(locale, 'Your Tycoon helpers', 'Taipan di meja')}>
             <header><Crown aria-hidden="true" /><span>{tr(locale, 'Inner circle', 'Lingkar dalam')}</span><b>{state.player.tycoons.length}/{MAX_TYCOONS}</b></header>
             <div className="tycoon-lineup">
               {state.player.tycoons.length
                 ? state.player.tycoons.map((tycoon) => <TycoonCard key={tycoon.id} tycoon={tycoon} compact onInspect={() => setInspectedTycoon(tycoon)} />)
-                : <p>{tr(locale, 'Clear this market, then hire a Tycoon at the Night Market.', 'Tembus pasar ini, lalu rekrut taipan di Pasar Malam.')}</p>}
+                : <p>{tr(locale, 'Clear this market, then hire a Tycoon at the Night Market.', 'Tembus pasar ini, terus rekrut taipan di Pasar Malam.')}</p>}
             </div>
           </section>
-          <div className={`played-tray ${state.lastPlayedCards.length ? 'has-cards' : ''}`} aria-live="polite">
+          <div className={`played-tray ${state.lastPlayedCards.length ? 'has-cards' : 'is-empty'}`} aria-live="polite">
             <span className="played-label">{state.lastPlayedCards.length ? tr(locale, 'Last portfolio played', 'Portofolio terakhir') : tr(locale, 'Play your first portfolio', 'Mainkan portofolio pertamamu')}</span>
             <div className="played-cards">
               {state.lastPlayedCards.map((card, index) => <AssetCard key={card.instanceId} card={card} compact index={index} onInspect={() => setInspectedCard(card)} />)}
@@ -762,16 +804,15 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
           <div className="last-hands">
             <ScoreFormula score={state.lastPlayerScore} label={tr(locale, 'Your last hand', 'Tangan terakhirmu')} />
           </div>
-          <ScoreFormula score={prediction} label={tr(locale, 'Selected hand', 'Tangan terpilih')} />
         </section>
 
-        <aside className="player-panel">
+        <aside className="player-panel" data-label={tr(locale, 'YOUR BANK', 'KANTONGMU')}>
           <div className="player-resource"><span>{tr(locale, 'Hands', 'Tangan')}</span><strong>{state.player.handsLeft}</strong></div>
           <div className="player-resource"><span>{tr(locale, 'Discards', 'Buang')}</span><strong>{state.player.discardsLeft}</strong></div>
           <div className="player-resource gold"><span>{tr(locale, 'Capital', 'Modal')}</span><strong>${state.player.cash}</strong></div>
           <div className={`deck-count ${reshuffling ? 'reshuffling' : ''}`}>
-            <span>Deck</span><b>{deckSize(state.player)}</b>
-            {reshuffling && <em aria-hidden="true">reshuffled</em>}
+            <span>{tr(locale, 'Deck', 'Dek')}</span><b>{deckSize(state.player)}</b>
+            {reshuffling && <em aria-hidden="true">{tr(locale, 'reshuffled', 'diacak')}</em>}
           </div>
           <ConsumableRack state={state} dispatch={dispatch} />
         </aside>
@@ -788,7 +829,7 @@ function GameTable({ state, dispatch }: { state: GameState; dispatch: Dispatch }
             <button className={handSort === 'rank' ? 'active' : ''} onClick={() => setHandSort('rank')} type="button">{tr(locale, 'Rank', 'Peringkat')}</button>
           </div>
           <button className="secondary" disabled={!selected.length || state.player.discardsLeft < 1 || busy} onClick={discard}><RotateCcw /> {tr(locale, 'Discard', 'Buang')} <small>{selected.length || ''}</small></button>
-          <button className="primary" disabled={!selected.length || busy} onClick={play}><Coins /> {busy ? tr(locale, 'Scoring portfolio…', 'Menghitung portofolio…') : tr(locale, 'Commit portfolio', 'Mainkan portofolio')}</button>
+          <button className="primary" disabled={!selected.length || busy} onClick={play}><Coins /> {busy ? tr(locale, 'Scoring portfolio…', 'Ngitung portofolio…') : tr(locale, 'Commit portfolio', 'Mainkan')}</button>
         </div>
       </section>
       {inspectedCard && <CardPreview card={inspectedCard} onClose={() => setInspectedCard(null)} />}
@@ -938,8 +979,10 @@ function Ending({ state, dispatch }: { state: GameState; dispatch: Dispatch }) {
       <section>
         {won ? <Trophy /> : <Coins />}
         <span>{won ? tr(locale, 'Eight markets conquered', 'Delapan pasar ditaklukkan') : tr(locale, `Run ended in round ${state.round}`, `Permainan berakhir di ronde ${state.round}`)}</span>
-        <h1>{won ? tr(locale, 'The city is yours.', 'Kota ini milikmu.') : tr(locale, 'The market collected.', 'Pasar menagih utang.')}</h1>
-        <p>{won ? 'The final market has cleared.' : `You needed ${money(marketTarget(state.round, state.difficulty, state.modifier))} and closed at ${money(state.player.score)}.`}</p>
+        <h1>{won ? tr(locale, 'The city is yours.', 'Kota ini milikmu.') : tr(locale, 'The market collected.', 'Pasar yang menang.')}</h1>
+        <p>{won
+          ? tr(locale, 'Eight markets down. Jakarta bends.', 'Delapan pasar beres. Jakarta nurut.')
+          : tr(locale, `You needed ${money(marketTarget(state.round, state.difficulty, state.modifier))} and closed at ${money(state.player.score)}.`, `Butuh ${money(marketTarget(state.round, state.difficulty, state.modifier))}, cuma sampai ${money(state.player.score)}.`)}</p>
         <div className="ending-score"><span>{tr(locale, 'Run score', 'Skor permainan')}</span><strong>{money(state.runScore)}</strong></div>
         <div className="ending-actions">
           <button className="primary large" onClick={() => dispatch({ type: 'NEW_RUN', difficulty: state.difficulty, companion: state.companion })}><Sparkles /> {tr(locale, 'Run it back', 'Main lagi')}</button>

@@ -9,33 +9,33 @@ export const GROUPS: Record<GroupKey, { label: string; setSize: number; color: s
 };
 
 export const HANDS: Record<HandKey, { name: string; multiplier: number; description: string }> = {
-  HIGH_ASSET: { name: 'High Asset', multiplier: 1, description: 'Tidak ada pola; peringkat tertinggi memimpin.' },
-  PAIR: { name: 'Pair', multiplier: 2, description: 'Dua aset dengan peringkat sama.' },
-  TWO_PAIRS: { name: 'Two Pairs', multiplier: 3, description: 'Dua pasangan peringkat berbeda.' },
-  THREE_KIND: { name: 'Three of a Kind', multiplier: 4, description: 'Tiga aset dengan peringkat sama.' },
-  STRAIGHT: { name: 'Straight', multiplier: 6, description: 'Lima peringkat berurutan, kelas bebas.' },
-  FLUSH: { name: 'Flush', multiplier: 7, description: 'Empat atau lima aset dari kelas yang sama.' },
-  FULL_HOUSE: { name: 'Full House', multiplier: 9, description: 'Tiga serupa ditambah satu pasangan.' },
-  FOUR_KIND: { name: 'Four of a Kind', multiplier: 12, description: 'Empat aset dengan peringkat sama.' },
-  STRAIGHT_FLUSH: { name: 'Straight Flush', multiplier: 16, description: 'Lima peringkat berurutan dalam satu kelas.' },
+  HIGH_ASSET: { name: 'High Asset', multiplier: 1, description: 'Gak ada pola; rank tertinggi yang jalan.' },
+  PAIR: { name: 'Pair', multiplier: 2, description: 'Dua aset rank sama.' },
+  TWO_PAIRS: { name: 'Two Pairs', multiplier: 3, description: 'Dua pasang rank beda.' },
+  THREE_KIND: { name: 'Three of a Kind', multiplier: 4, description: 'Tiga aset rank sama.' },
+  STRAIGHT: { name: 'Straight', multiplier: 6, description: 'Lima rank berurutan, kelas bebas.' },
+  FLUSH: { name: 'Flush', multiplier: 7, description: 'Empat atau lima aset satu kelas.' },
+  FULL_HOUSE: { name: 'Full House', multiplier: 9, description: 'Tiga sama plus satu pasang.' },
+  FOUR_KIND: { name: 'Four of a Kind', multiplier: 12, description: 'Empat aset rank sama.' },
+  STRAIGHT_FLUSH: { name: 'Straight Flush', multiplier: 16, description: 'Lima rank berurutan, satu kelas.' },
 };
 
 /** Market events are public constraints, not surprise punishments. */
 export const MARKET_MODIFIERS: MarketModifier[] = [
-  { id: 'BANJIR', name: 'Banjir', summary: 'Aset Hunian bernilai 0 di pasar ini.', art: 'banjir' },
-  { id: 'MACET', name: 'Macet', summary: 'Aset Transport hanya menghasilkan setengah chip di pasar ini.', art: 'macet' },
-  { id: 'MATI_LAMPU', name: 'Mati Lampu', summary: 'Aset Utilitas bernilai 0 di pasar ini.', art: 'mati-lampu' },
-  { id: 'GANJIL_GENAP', name: 'Ganjil-Genap', summary: 'Hanya aset chip ganjil yang bernilai di pasar ini.', art: 'ganjil-genap', parity: 'odd' },
-  { id: 'SIDAK', name: 'Sidak', summary: 'Efek semua taipan mati gaya di pasar ini.', art: 'sidak' },
-  { id: 'MUSIM_KAWIN', name: 'Musim Kawin', summary: 'Chip Komersial dua kali lipat; aset lain −20%.', art: 'musim-kawin' },
-  { id: 'REKLAMASI', name: 'Reklamasi', summary: 'Tiga aset acak disingkirkan hanya untuk pasar ini.', art: 'reklamasi' },
+  { id: 'BANJIR', name: 'Banjir', summary: 'Aset Hunian mati di pasar ini.', art: 'banjir' },
+  { id: 'MACET', name: 'Macet', summary: 'Aset Transport cuma setengah chip di pasar ini.', art: 'macet' },
+  { id: 'MATI_LAMPU', name: 'Mati Lampu', summary: 'Aset Utilitas mati di pasar ini.', art: 'mati-lampu' },
+  { id: 'GANJIL_GENAP', name: 'Ganjil-Genap', summary: 'Cuma aset chip ganjil yang jalan di pasar ini.', art: 'ganjil-genap', parity: 'odd' },
+  { id: 'SIDAK', name: 'Sidak', summary: 'Efek taipan off di pasar ini.', art: 'sidak' },
+  { id: 'MUSIM_KAWIN', name: 'Musim Kawin', summary: 'Chip Komersial dobel; aset lain −20%.', art: 'musim-kawin' },
+  { id: 'REKLAMASI', name: 'Reklamasi', summary: 'Tiga aset acak disingkirkan cuma buat pasar ini.', art: 'reklamasi' },
 ];
 
 export const CONSUMABLES: Consumable[] = [
-  { id: 'SERTIFIKAT', name: 'Sertifikat', description: 'Ubah satu aset terpilih ke grup aset berikutnya.', cost: 3, art: 'sertifikat' },
-  { id: 'NOTARIS', name: 'Notaris', description: 'Salin satu aset terpilih ke tumpukan buangan.', cost: 4, art: 'notaris' },
-  { id: 'PUNGLI', name: 'Pungli', description: 'Acak ulang event pasar publik. Reklamasi tidak ikut.', cost: 3, art: 'pungli' },
-  { id: 'UANG_PELICIN', name: 'Uang Pelicin', description: 'Dapatkan satu tangan ekstra hanya untuk pasar ini.', cost: 4, art: 'uang-pelicin' },
+  { id: 'SERTIFIKAT', name: 'Sertifikat', description: 'Ubah satu aset terpilih ke grup berikutnya.', cost: 3, art: 'sertifikat' },
+  { id: 'NOTARIS', name: 'Notaris', description: 'Salin satu aset terpilih ke buangan.', cost: 4, art: 'notaris' },
+  { id: 'PUNGLI', name: 'Pungli', description: 'Acak ulang event pasar. Reklamasi gak ikut.', cost: 3, art: 'pungli' },
+  { id: 'UANG_PELICIN', name: 'Uang Pelicin', description: 'Dapat satu tangan ekstra cuma buat pasar ini.', cost: 4, art: 'uang-pelicin' },
   { id: 'SITA', name: 'Sita', description: 'Musnahkan tepat tiga aset terpilih dari tanganmu.', cost: 4, art: 'sita' },
 ];
 

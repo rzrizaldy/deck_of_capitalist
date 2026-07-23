@@ -77,7 +77,7 @@ test('starts a solo market, scores, and persists the run', async ({ page }) => {
   await startRun(page);
   await page.locator('.hand-cards').getByRole('button', { name: /^1\./ }).click();
   await page.getByRole('button', { name: /Commit portfolio/i }).click();
-  await expect(page.getByText(/You scored/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/You hit/)).toBeVisible({ timeout: 10_000 });
   await page.reload();
   await expect(page.getByRole('button', { name: /Continue round 1/i })).toBeVisible();
 });
@@ -102,7 +102,9 @@ test('every screen fits the canvas without scrolling the document', async ({ pag
     await expectFrameFits(page, `menu ${at}`);
     await expect(page.getByRole('button', { name: /Start market run/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /How to play/i })).toBeVisible();
+    await page.getByRole('button', { name: /Settings/i }).click();
     await expect(page.getByLabel('Volume')).toBeVisible();
+    await page.getByRole('button', { name: /^Close$/i }).click();
 
     // Compendium (overflows the canvas, so it must scroll inside it)
     await page.getByRole('button', { name: /^Cards$/i }).click();
