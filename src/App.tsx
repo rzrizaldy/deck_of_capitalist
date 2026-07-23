@@ -17,6 +17,7 @@ type Dispatch = React.Dispatch<Parameters<typeof gameReducer>[1]>;
 type Locale = 'id' | 'en';
 type HandSort = 'class' | 'rank';
 const LOCALE_KEY = 'doc-locale';
+const PROSPERITY_URL = 'https://deck-of-prosperity.allrize.tech/';
 const LocaleContext = createContext<Locale>('id');
 const useLocale = () => useContext(LocaleContext);
 const tr = (locale: Locale, english: string, indonesian: string) => locale === 'id' ? indonesian : english;
@@ -153,6 +154,12 @@ function SettingsPanel({ state, dispatch, onClose }: { state: GameState; dispatc
         <h3>{tr(locale, 'Sound & music', 'Suara & musik')}</h3>
         <AudioControls state={state} dispatch={dispatch} />
       </section>
+      <section className="settings-section settings-twin">
+        <p className="settings-hint">{tr(locale, 'Feeling Optimist for 🇮🇩?', 'Merasa optimis buat 🇮🇩?')}</p>
+        <a className="settings-link settings-link--bright" href={PROSPERITY_URL} target="_blank" rel="noopener noreferrer">
+          Deck of Prosperity
+        </a>
+      </section>
     </Modal>
   );
 }
@@ -208,6 +215,7 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
 }) {
   const locale = useLocale();
   const group = GROUPS[card.group];
+  const cardNameClass = card.name.length > 23 ? 'card-name card-name--very-long' : card.name.length > 16 ? 'card-name card-name--long' : 'card-name';
   const holdTimer = useRef<number>();
   const hoverTimer = useRef<number>();
   const held = useRef(false);
@@ -257,8 +265,7 @@ function AssetCard({ card, selected = false, compact = false, departing = false,
       <span className="card-rank" aria-label={`Rank ${card.rank}`}>{card.rank}</span>
       {onInspect && <span className="inspect-hint" aria-hidden="true"><Eye /></span>}
       <span className="card-stripe">{localizedGroup(card.group, locale)}</span>
-      <strong>{card.name}</strong>
-      <span className="card-value"><Coins aria-hidden="true" /> {card.chips + card.bonus}</span>
+      <strong className={cardNameClass}>{card.name}</strong>
       {card.bonus > 0 && <span className="upgrade">+{card.bonus}</span>}
     </button>
   );

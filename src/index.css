@@ -616,7 +616,6 @@ button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
   padding: 0 calc(5 * var(--u)); border: 0; border-right: 1px solid color-mix(in srgb, var(--group), white 45%); border-bottom: 1px solid color-mix(in srgb, var(--group), white 45%); border-radius: 0 0 calc(6 * var(--u)) 0; background: color-mix(in srgb, var(--group), #020507 12%); color: var(--group-ink); text-transform: uppercase;
   font: 700 calc(9.8 * var(--u)) 'DM Mono', monospace; letter-spacing: .05em;
 }
-/* The name sits over artwork, so it needs its own shadow to stay readable. */
 .asset-card strong {
   width: 100%; color: #fbfdfd; text-align: center; font-size: calc(12 * var(--u)); font-weight: 700;
   line-height: 1.1; text-shadow: 0 1px 2px rgba(0, 0, 0, .95), 0 0 6px rgba(0, 0, 0, .8);
@@ -626,7 +625,17 @@ button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
   border-radius: calc(5 * var(--u)); padding: calc(2.8 * var(--u)) calc(5 * var(--u)); font: 700 calc(12 * var(--u)) 'DM Mono', monospace;
 }
 .card-value svg { width: calc(12.6 * var(--u)); height: calc(12.6 * var(--u)); }
-.card-rank { position: absolute; z-index: 2; top: calc(5 * var(--u)); left: calc(6 * var(--u)); display: grid; place-items: center; min-width: calc(22 * var(--u)); height: calc(22 * var(--u)); border: 1px solid rgba(255,234,164,.78); border-radius: calc(5 * var(--u)); background: rgba(3,12,15,.82); color: #fff0b5; font: 800 calc(14 * var(--u)) 'DM Mono', monospace; box-shadow: 0 2px 8px rgba(0,0,0,.55); }
+.card-rank {
+  position: absolute; z-index: 2; top: calc(5 * var(--u)); left: calc(6 * var(--u));
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: calc(22 * var(--u)); height: calc(22 * var(--u));
+  padding: 0.14em 0.15em 0.02em; box-sizing: border-box;
+  border: 1px solid rgba(255,234,164,.78); border-radius: calc(5 * var(--u));
+  background: rgba(3,12,15,.82); color: #fff0b5;
+  font: 800 calc(13 * var(--u))/1 'DM Mono', monospace;
+  letter-spacing: 0; text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.55);
+}
 .upgrade {
   position: absolute; right: calc(4 * var(--u)); top: calc(28 * var(--u)); background: #2aaf7d; color: #03140e;
   border-radius: 4px; padding: calc(1.5 * var(--u)) calc(3 * var(--u)); font: 700 calc(9.4 * var(--u)) 'DM Mono', monospace;
@@ -1027,10 +1036,69 @@ kbd { border: 1px solid #3b4852; background: #121b23; border-radius: 4px; paddin
   margin: 0; font-size: var(--t-sm, .85rem); letter-spacing: .04em; text-transform: uppercase; color: #93a2a8;
 }
 .settings-modal .audio-controls { flex-wrap: wrap; }
+.settings-section + .settings-section {
+  margin-top: calc(12 * var(--u, 1px));
+  padding-top: calc(12 * var(--u, 1px));
+  border-top: 1px solid rgba(217, 168, 61, .22);
+}
+.settings-hint { margin: 0; color: #93a2a8; font-size: var(--t-sm); }
+.settings-link {
+  display: inline-flex; align-items: center; justify-content: center; gap: calc(5 * var(--u, 1px));
+  padding: calc(8 * var(--u, 1px)) calc(12 * var(--u, 1px)); border-radius: calc(8 * var(--u, 1px));
+  background: linear-gradient(135deg, #1f3d36, #0f2620); color: #f5efd2;
+  text-decoration: none; font-weight: 600;
+}
+.settings-link--bright {
+  background: linear-gradient(135deg, #2f8f72, #1a5c48);
+  color: #f5fff8;
+  box-shadow: 0 calc(4 * var(--u, 1px)) calc(14 * var(--u, 1px)) rgba(47, 143, 114, .28);
+}
+.settings-link:hover { filter: brightness(1.08); }
 
 .hand-cards { justify-content: center; padding-inline: calc(15 * var(--u)); box-sizing: border-box; }
+.hand-cards .asset-card { width: calc(82 * var(--u)); }
 @media (min-height: 600px) {
   .hand-cards .asset-card { margin-left: calc(-29 * var(--u)); }
+}
+
+/* Footer label stack — prosperity twin layout */
+.asset-card .card-art { opacity: 1; mix-blend-mode: normal; image-rendering: pixelated; }
+.asset-card::after, .played-cards .asset-card::after {
+  background: linear-gradient(180deg, transparent 48%, rgba(3,7,11,.10) 64%, rgba(3,7,11,.88) 100%);
+}
+.asset-card > .card-stripe {
+  position: absolute; z-index: 2; top: auto; right: 0; bottom: calc(27 * var(--u)); left: 0;
+  width: 100%; height: calc(17 * var(--u)); min-height: 0; box-sizing: border-box;
+  display: grid; place-items: center; padding: calc(1 * var(--u)) calc(3 * var(--u));
+  border: 0; border-radius: 0;
+  background: color-mix(in srgb, var(--group), #06100c 12%); color: #fff;
+  font-size: calc(6.4 * var(--u)); line-height: 1.02; letter-spacing: .035em; text-align: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,.62);
+}
+.asset-card > .card-name {
+  position: absolute; z-index: 2; right: 0; bottom: 0; left: 0;
+  width: 100%; height: calc(27 * var(--u)); box-sizing: border-box;
+  display: grid; place-items: center; overflow: hidden; padding: calc(2 * var(--u)) calc(4 * var(--u));
+  background: rgba(4,12,16,.92); color: #fff; font-size: calc(9.6 * var(--u)); line-height: 1.02;
+  text-shadow: 0 1px 3px rgba(0,0,0,.94);
+}
+.hand-cards .asset-card > .card-name { font-size: calc(9.2 * var(--u)); }
+.hand-cards .asset-card > .card-name--long { font-size: calc(8 * var(--u)); }
+.hand-cards .asset-card > .card-name--very-long { font-size: calc(6.9 * var(--u)); line-height: .98; }
+.played-cards .asset-card > .card-stripe { bottom: 0; height: calc(13 * var(--u)); font-size: calc(5.5 * var(--u)); }
+.played-cards .asset-card > .card-name { display: none; }
+.compendium .asset-card > .card-rank {
+  left: 50%; top: calc(3.5 * var(--collection-u));
+  transform: translateX(-50%);
+  min-width: calc(22 * var(--collection-u)); height: calc(18 * var(--collection-u));
+  padding: 0.16em 0.18em 0.02em;
+  font-size: calc(10.5 * var(--collection-u));
+}
+.compendium .inspect-hint { display: none; }
+.deed-picker .asset-card > .card-stripe { bottom: calc(24 * var(--u)); height: calc(14 * var(--u)); font-size: calc(5.7 * var(--u)); }
+.deed-picker .asset-card > .card-name {
+  height: calc(24 * var(--u)); padding: calc(1 * var(--u)) calc(2 * var(--u));
+  white-space: normal; text-overflow: clip; font-size: calc(6.1 * var(--u)); line-height: .98;
 }
 
 @media (max-height: 420px) and (orientation: landscape) {
