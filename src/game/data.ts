@@ -9,15 +9,15 @@ export const GROUPS: Record<GroupKey, { label: string; setSize: number; color: s
 };
 
 export const HANDS: Record<HandKey, { name: string; multiplier: number; description: string }> = {
-  HIGH_ASSET: { name: 'Aset Tinggi', multiplier: 1, description: 'Tidak ada pola; peringkat tertinggi memimpin.' },
-  PAIR: { name: 'Pasangan', multiplier: 2, description: 'Dua aset dengan peringkat sama.' },
-  TWO_PAIRS: { name: 'Dua Pasang', multiplier: 3, description: 'Dua pasangan peringkat berbeda.' },
-  THREE_KIND: { name: 'Tiga Serupa', multiplier: 4, description: 'Tiga aset dengan peringkat sama.' },
-  STRAIGHT: { name: 'Koridor', multiplier: 6, description: 'Lima peringkat berurutan, kelas bebas.' },
-  FLUSH: { name: 'Satu Kelas', multiplier: 7, description: 'Empat atau lima aset dari kelas yang sama.' },
-  FULL_HOUSE: { name: 'Kawasan Lengkap', multiplier: 9, description: 'Tiga serupa ditambah satu pasangan.' },
-  FOUR_KIND: { name: 'Empat Serupa', multiplier: 12, description: 'Empat aset dengan peringkat sama.' },
-  STRAIGHT_FLUSH: { name: 'Koridor Utama', multiplier: 16, description: 'Lima peringkat berurutan dalam satu kelas.' },
+  HIGH_ASSET: { name: 'High Asset', multiplier: 1, description: 'Tidak ada pola; peringkat tertinggi memimpin.' },
+  PAIR: { name: 'Pair', multiplier: 2, description: 'Dua aset dengan peringkat sama.' },
+  TWO_PAIRS: { name: 'Two Pairs', multiplier: 3, description: 'Dua pasangan peringkat berbeda.' },
+  THREE_KIND: { name: 'Three of a Kind', multiplier: 4, description: 'Tiga aset dengan peringkat sama.' },
+  STRAIGHT: { name: 'Straight', multiplier: 6, description: 'Lima peringkat berurutan, kelas bebas.' },
+  FLUSH: { name: 'Flush', multiplier: 7, description: 'Empat atau lima aset dari kelas yang sama.' },
+  FULL_HOUSE: { name: 'Full House', multiplier: 9, description: 'Tiga serupa ditambah satu pasangan.' },
+  FOUR_KIND: { name: 'Four of a Kind', multiplier: 12, description: 'Empat aset dengan peringkat sama.' },
+  STRAIGHT_FLUSH: { name: 'Straight Flush', multiplier: 16, description: 'Lima peringkat berurutan dalam satu kelas.' },
 };
 
 /** Market events are public constraints, not surprise punishments. */

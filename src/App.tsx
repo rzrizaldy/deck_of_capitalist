@@ -373,7 +373,7 @@ function ScoringExample() {
       <div className="example-cards">
         <span style={swatch}>3<b>15</b></span><span style={swatch}>4<b>20</b></span><span style={swatch}>5<b>25</b></span><span style={swatch}>6<b>30</b></span><span style={swatch}>7<b>35</b></span>
       </div>
-      <figcaption>{tr(locale, 'Five consecutive ranks make a Straight. Four cards in the same class make a Flush. Do both with five cards and it is a Straight Flush.', 'Lima peringkat berurutan membentuk Koridor. Empat kartu satu kelas membentuk Satu Kelas. Dapatkan keduanya dengan lima kartu untuk Koridor Utama.')}</figcaption>
+      <figcaption>{tr(locale, 'Five consecutive ranks make a Straight. Four cards in the same class make a Flush. Do both with five cards and it is a Straight Flush.', 'Lima peringkat berurutan membentuk Straight. Empat kartu satu kelas membentuk Flush. Dapatkan keduanya dengan lima kartu untuk Straight Flush.')}</figcaption>
       <div className="example-maths">
         <span><small>{tr(locale, 'chips', 'chip')}</small><strong>125</strong></span>
         <i>×</i>
